@@ -3,7 +3,7 @@
 const fs = require('fs');
 const C = require('./core');
 const N = +process.argv[2], secs = +process.argv[3];
-const K = { 4: [3, 4], 5: [3, 5], 6: [4, 6], 7: [4, 6], 8: [4, 7], 9: [5, 7] }[N];
+const K = { 4: [3, 4], 5: [3, 5], 6: [4, 7], 7: [5, 8], 8: [6, 9], 9: [6, 10] }[N];
 fs.mkdirSync(__dirname + '/pool', { recursive: true });
 const file = __dirname + '/pool/n' + N + '.jsonl';
 fs.writeFileSync(file, '');
@@ -20,7 +20,7 @@ while (Date.now() < end){
   const pb = 0.01 + rnd() * 0.10;
   const base = C.generate(N, pb, K[0], K[1], Math.floor(rnd() * 2e9));
   if (!base) continue;
-  const r = C.solve(N, base, 400000);
+  const r = C.solve(N, base, 1000000);
   if (r.aborted || r.found.length !== 1) continue;
   const sig = C.signature(N, base);
   if (seen.has(sig)) continue;
