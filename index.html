@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>점 잇기 퍼즐</title>
+<style>
+  :root{--bg:#10131c;--panel:#1a1f2e;--text:#e8ecf5;--muted:#8791a8;--grid:#2a3147}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px;user-select:none;-webkit-user-select:none}
+  h1{margin:4px 0 0;font-size:22px}
+  .sub{color:var(--muted);font-size:13px;margin:0;text-align:center}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  button{background:var(--panel);color:var(--text);border:1px solid var(--grid);border-radius:10px;padding:8px 14px;font-size:15px;cursor:pointer}
+  button:hover:not(:disabled){border-color:#5b8cff}
+  button:disabled{opacity:.35;cursor:default}
+  .stat{background:var(--panel);border-radius:10px;padding:8px 14px;font-size:14px;min-width:90px;text-align:center}
+  canvas{width:min(94vw,520px);aspect-ratio:1;touch-action:none;border-radius:14px;background:#0b0e15;box-shadow:0 8px 30px #0008}
+  #msg{height:24px;font-weight:600;color:#7dffb0}
+</style>
+</head>
+<body>
+  <h1>점 잇기 퍼즐</h1>
+  <p class="sub">같은 색 점끼리 선으로 연결하고, 판의 모든 칸을 채우세요. 선이 서로 겹칠 수 없어요.</p>
+  <div class="bar">
+    <button id="prev">◀</button>
+    <div class="stat" id="lvl">레벨 1</div>
+    <button id="next">▶</button>
+    <div class="stat" id="flows">연결 0/0</div>
+    <div class="stat" id="fill">채움 0%</div>
+    <button id="reset">다시</button>
+  </div>
+  <canvas id="c" width="520" height="520"></canvas>
+  <div id="msg"></div>
+  <script src="game.js"></script>
+</body>
+</html>
