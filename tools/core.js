@@ -75,7 +75,8 @@ function generate(n, pBreak, kMin, kMax, seed){
 }
 
 // 해가 몇 개인지 센다 (최대 2개까지). 시간 초과면 aborted
-function solve(n, sol, nodeLimit){
+function solve(n, sol, nodeLimit, maxSol){
+  maxSol = maxSol || 2;
   const N = n * n, K = sol.length;
   const owner = new Int8Array(N).fill(-1), head = new Int32Array(K), target = new Int32Array(K), done = new Uint8Array(K);
   const nb = []; for (let i = 0; i < N; i++) nb.push(neighbors(i, n));
@@ -97,7 +98,7 @@ function solve(n, sol, nodeLimit){
     return true;
   }
   function dfs(){
-    if (aborted || found.length >= 2) return;
+    if (aborted || found.length >= maxSol) return;
     if (++nodes > nodeLimit){ aborted = true; return; }
     let bc = -1, bo = null;
     for (let c = 0; c < K; c++){
@@ -114,7 +115,7 @@ function solve(n, sol, nodeLimit){
     for (const x of bo){
       if (x === target[c]){ done[c] = 1; if (ok()) dfs(); done[c] = 0; }
       else { owner[x] = c; head[c] = x; if (ok()) dfs(); owner[x] = -1; head[c] = oldHead; }
-      if (aborted || found.length >= 2) return;
+      if (aborted || found.length >= maxSol) return;
     }
   }
   dfs();
