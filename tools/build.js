@@ -5,11 +5,9 @@ const pick = (a, b) => core.slice(core.indexOf(a), core.indexOf(b));
 const runtimeHead = pick('const COLORS', '// 격자를') ;   // COLORS, TOTAL, KINDS, stageParams, maxHints, mulberry32, neighbors
 const C = require('./core');
 const stages = new Array(C.TOTAL).fill(null);
-for (const f of fs.readdirSync(__dirname + '/out')){
-  for (const line of fs.readFileSync(__dirname + '/out/' + f, 'utf8').split('\n')){
-    if (!line) continue;
-    const o = JSON.parse(line); stages[o.idx] = o.enc;
-  }
+for (const line of fs.readFileSync(__dirname + '/final.jsonl', 'utf8').split('\n')){
+  if (!line) continue;
+  const o = JSON.parse(line); stages[o.idx] = o.n + '|' + o.enc;
 }
 const missing = stages.map((s, i) => s ? -1 : i + 1).filter(x => x > 0);
 if (missing.length) console.error('missing stages:', missing.join(','));
@@ -19,8 +17,8 @@ const decode = `
 const levelCache = {};
 function makeLevel(idx){
   if (levelCache[idx]) return levelCache[idx];
-  const P = stageParams(idx), n = P.n;
-  const sol = STAGES[idx].split(',').map(t => {
+  const P = stageParams(idx), parts = STAGES[idx].split('|'), n = +parts[0];
+  const sol = parts[1].split(',').map(t => {
     const [s, d] = t.split(':'); const p = [+s];
     for (const ch of d) p.push(p[p.length - 1] + (ch === 'R' ? 1 : ch === 'L' ? -1 : ch === 'D' ? n : -n));
     return p;
