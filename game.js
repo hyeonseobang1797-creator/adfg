@@ -150,22 +150,47 @@ function makeUnique(n, sol, rnd, deadline){
   return { sol, unique: false };
 }
 
+// 회전·뒤집기·색 바꿈이 같으면 같은 퍼즐로 본다
+function signature(n, sol){
+  const pts = sol.map(p => [p[0], p[p.length - 1]].map(c => [Math.floor(c / n), c % n]));
+  let best = null;
+  for (let tr = 0; tr < 8; tr++){
+    const f = pt => {
+      let r = pt[0], c = pt[1];
+      if (tr & 4){ const t = r; r = c; c = t; }
+      if (tr & 1) r = n - 1 - r;
+      if (tr & 2) c = n - 1 - c;
+      return r * n + c;
+    };
+    const key = pts.map(pr => pr.map(f).sort((x, y) => x - y).join('-')).sort().join('|');
+    if (best === null || key < best) best = key;
+  }
+  return best;
+}
+
 const levelCache = {};
 function makeLevel(idx){
   if (levelCache[idx]) return levelCache[idx];
   const P = stageParams(idx);
-  let pairs = null, res = null;
+  // 작은 판은 앞 스테이지와 같은 퍼즐이 나오지 않게 비교한다
+  const seen = new Set();
+  if (P.n <= 7){
+    for (let j = 0; j < idx; j++) if (stageParams(j).n === P.n) seen.add(makeLevel(j).sig);
+  }
   const deadline = Date.now() + 500;
-  for (let t = 0; t < 6; t++){
+  let best = null, score = -1;
+  for (let v = 0; v < 400; v++){
     let base = null;
     for (let s = 0; !base && s < 20; s++)
-      base = generate(P.n, P.pBreak, Math.max(3, Math.floor(P.n * P.lo)), Math.min(16, Math.ceil(P.n * P.hi)), 1000 + idx * 7919 + s + t * 131);
-    const r = makeUnique(P.n, base, mulberry32(77 + idx + t), deadline);
-    if (!res || (r.unique && !res.unique)) res = r;
-    if (res.unique || Date.now() > deadline) break;
+      base = generate(P.n, P.pBreak, Math.max(3, Math.floor(P.n * P.lo)), Math.min(16, Math.ceil(P.n * P.hi)), 1000 + idx * 7919 + s + v * 131);
+    const r = makeUnique(P.n, base, mulberry32(77 + idx + v), deadline);
+    const sig = signature(P.n, r.sol);
+    const sc = (seen.has(sig) ? 0 : 2) + (r.unique ? 1 : 0);
+    if (sc > score){ score = sc; best = { r, sig }; }
+    if (score === 3 || Date.now() > deadline) break;
   }
-  pairs = res.sol;
-  return (levelCache[idx] = { n: P.n, sol: pairs, pairs: pairs.map(p => [p[0], p[p.length - 1]]), kind: P.kind, unique: res.unique });
+  const pairs = best.r.sol;
+  return (levelCache[idx] = { n: P.n, sol: pairs, pairs: pairs.map(p => [p[0], p[p.length - 1]]), kind: P.kind, unique: best.r.unique, sig: best.sig });
 }
 
 if (typeof module !== 'undefined') module.exports = { solve, makeLevel, stageParams, TOTAL };
