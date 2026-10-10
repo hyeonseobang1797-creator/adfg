@@ -1,10 +1,19 @@
 const COLORS = ['#ff4d4d','#3fa9ff','#ffd23f','#3ddc84','#ff8c1a','#c26bff','#00e5d0','#ff6bb5','#a0a8ff','#b5651d','#c8ff3f','#ffffff','#7a5cff','#ff9e9e','#2f8f5b','#d4a5ff','#4d6bff','#ffb36b','#6bffd8','#e04dff','#9aff4d','#ff4d9a','#4dd2ff','#d9b38c'];
 const TOTAL = 500;
+const KINDS = ['', '어려움', '하드'];
 
 // 스테이지가 올라갈수록 조금씩 계속 어려워진다: 판이 커지고, 선이 길고 구불해지고, 색이 늘어난다
 function stageParams(i){
-  const d = i / (TOTAL - 1);
-  return { kind: 0, n: 4 + Math.min(11, Math.floor(d * 12)), pBreak: 0.30 - 0.22 * d, lo: 0.8, hi: 1.0 + 0.4 * d };
+  const d = i / (TOTAL - 1), no = i + 1;
+  // 10스테이지마다 어려움, 300스테이지부터는 어려움과 하드가 번갈아 나온다
+  let kind = 0;
+  if (no % 10 === 0) kind = no >= 300 && (no / 10) % 2 === 0 ? 2 : 1;
+  return {
+    kind,
+    n: Math.min(16, 4 + Math.min(11, Math.floor(d * 12)) + [0, 2, 4][kind]),
+    pBreak: 0.30 - 0.22 * d - [0, 0.04, 0.07][kind],
+    lo: 0.8, hi: 1.0 + 0.4 * d + [0, 0.2, 0.4][kind]
+  };
 }
 
 function mulberry32(a){
@@ -275,6 +284,7 @@ if (typeof document !== 'undefined') (function(){
 
   function updateUI(){
     $('lvl').textContent = '스테이지 ' + (levelIdx + 1) + ' / ' + TOTAL;
+    const dc = $('diff'); dc.hidden = kind === 0; dc.textContent = KINDS[kind]; dc.className = 'chip k' + kind;
     $('prev').disabled = levelIdx === 0;
     $('next').disabled = !(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1;
     $('next').classList.toggle('go', solved && levelIdx < TOTAL - 1);
@@ -336,7 +346,7 @@ if (typeof document !== 'undefined') (function(){
     for (let i = 0; i < TOTAL; i++){
       const b = document.createElement('button');
       b.textContent = i + 1;
-      b.className = 'k' + (i % 3) + (i === levelIdx ? ' cur' : '') + (i < unlocked ? ' done' : '');
+      b.className = 'k' + stageParams(i).kind + (i === levelIdx ? ' cur' : '') + (i < unlocked ? ' done' : '');
       b.disabled = i > unlocked;
       b.onclick = () => { load(i); $('sel').hidden = true; };
       box.appendChild(b);
