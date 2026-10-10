@@ -21,12 +21,12 @@ function nearest(target){
 }
 const geo = (a, b, t) => a * Math.pow(b / a, t);
 const out = [];
-// 일반 스테이지: 난이도가 서서히 올라간다. 10번째마다 나오는 어려움/하드는 같은 지점보다 훨씬 어려운 퍼즐
-normIdx.forEach((idx, j) => out.push({ idx, p: nearest(geo(Math.max(hMin, 15), hMax * 0.45, j / (normIdx.length - 1))) }));
+// 어려움/하드(10번째마다)를 먼저 고르고, 남은 퍼즐로 일반 스테이지를 서서히 어렵게 이어 붙인다
 bossIdx.forEach((idx, j) => {
   const t = idx / (C.TOTAL - 1);
-  out.push({ idx, p: nearest(Math.min(hMax * 4, geo(Math.max(hMin, 15), hMax * 0.45, t) * 4 + t * hMax)) });
+  out.push({ idx, p: nearest(geo(300, 40000, t)) });
 });
+normIdx.forEach((idx, j) => out.push({ idx, p: nearest(geo(20, 6000, j / (normIdx.length - 1))) }));
 out.sort((a, b) => a.idx - b.idx);
 fs.writeFileSync(__dirname + '/final.jsonl', out.map(o => JSON.stringify({ idx: o.idx, n: o.p.n, k: o.p.k, h: o.p.h, enc: o.p.enc })).join('\n') + '\n');
 const sz = {}; out.forEach(o => sz[o.p.n] = (sz[o.p.n] || 0) + 1);
