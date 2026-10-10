@@ -4,7 +4,8 @@ const fs = require('fs');
 const C = require('./core');
 const N = +process.argv[2], scale = +(process.argv[3] || 1);
 fs.mkdirSync(__dirname + '/out', { recursive: true });
-const outFile = __dirname + '/out/n' + N + '.jsonl';
+const only = process.argv[4] ? process.argv[4].split(',').map(x => +x - 1) : null;
+const outFile = __dirname + '/out/n' + N + (only ? 'b' : '') + '.jsonl';
 fs.writeFileSync(outFile, '');
 
 function encode(n, sol){
@@ -17,7 +18,7 @@ function encode(n, sol){
 const seen = new Set();
 for (let idx = 0; idx < C.TOTAL; idx++){
   const P = C.stageParams(idx);
-  if (P.n !== N) continue;
+  if (P.n !== N || (only && !only.includes(idx))) continue;
   const deadline = Date.now() + (P.kind === 3 ? 1 : 2 + 6 * P.d) * 1000 * scale;
   let best = null, tries = 0, uniq = 0;
   const rnd = C.mulberry32(idx * 977 + 13);
