@@ -182,9 +182,13 @@ if (typeof document !== 'undefined') (function(){
     const filled = paths.reduce((s, p) => s + p.length, 0);
     if (filled !== n * n) { $('msg').textContent = '모든 칸을 채워야 해요!'; return; }
     solved = true;
-    $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 다음 스테이지가 열렸어요';
+    $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 잠시 후 다음 스테이지로 넘어가요';
     if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; saveProgress(unlocked); }
     buildSelect();
+    if (levelIdx + 1 < TOTAL){
+      const cleared = levelIdx;
+      setTimeout(() => { if (solved && levelIdx === cleared) load(cleared + 1); }, 1200);
+    }
   }
 
   function updateUI(){
