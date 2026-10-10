@@ -6,8 +6,8 @@ const KINDS = ['쉬움','보통','어려움'];
 function stageParams(i){
   const kind = i % 3, t = Math.floor(i / 3), u = t / 166;
   if (kind === 0) return { kind, n: 4 + Math.floor(u * 3), pBreak: 0.30, lo: 0.8, hi: 1.1 };
-  if (kind === 1) return { kind, n: 5 + Math.floor(u * 4), pBreak: 0.18, lo: 0.8, hi: 1.25 };
-  return { kind, n: 6 + Math.floor(Math.pow(u, 0.8) * 5), pBreak: 0.12 - 0.05 * u, lo: 0.8, hi: 1.5 };
+  if (kind === 1) return { kind, n: 7 + Math.floor(u * 5), pBreak: 0.14, lo: 0.8, hi: 1.25 };
+  return { kind, n: 9 + Math.floor(Math.pow(u, 0.7) * 7), pBreak: 0.08 - 0.05 * u, lo: 0.8, hi: 1.5 };
 }
 
 function mulberry32(a){
