@@ -1,11 +1,14 @@
-'use strict';
+const COLORS = ['#ff4d4d','#3fa9ff','#ffd23f','#3ddc84','#ff8c1a','#c26bff','#00e5d0','#ff6bb5','#a0a8ff','#b5651d','#c8ff3f','#ffffff','#7a5cff','#ff9e9e','#2f8f5b','#d4a5ff'];
+const TOTAL = 500;
+const KINDS = ['쉬움','보통','어려움'];
 
-const COLORS = ['#ff4d4d','#3fa9ff','#ffd23f','#3ddc84','#ff8c1a','#c26bff','#00e5d0','#ff6bb5','#a0a8ff','#b5651d'];
-
-// 레벨 정의: [격자 크기, 색(선) 개수]
-const LEVEL_DEFS = [
-  [4,3],[5,4],[5,5],[6,5],[6,6],[7,6],[7,7],[8,7],[8,8],[9,8],[9,9],[10,9]
-];
+// 스테이지 번호(0부터)로 난이도 결정: 쉬움 -> 보통 -> 어려움 반복, 갈수록 어려워짐
+function stageParams(i){
+  const kind = i % 3, t = Math.floor(i / 3), u = t / 166;
+  if (kind === 0) return { kind, n: 4 + Math.floor(u * 4), pBreak: 0.30, lo: 0.8, hi: 1.1 };
+  if (kind === 1) return { kind, n: 5 + Math.floor(u * 6), pBreak: 0.18, lo: 0.8, hi: 1.25 };
+  return { kind, n: 6 + Math.floor(Math.pow(u, 0.75) * 9), pBreak: 0.10 - 0.07 * u, lo: 0.8, hi: 1.5 };
+}
 
 function mulberry32(a){
   return function(){
@@ -25,76 +28,71 @@ function neighbors(i, n){
   return out;
 }
 
-// 격자를 겹치지 않는 경로 k개로 완전히 분할 -> 항상 풀 수 있는 퍼즐
-function generate(n, k, seed){
-  const rnd = mulberry32(seed);
-  for (let attempt = 0; attempt < 5000; attempt++){
-    const owner = new Array(n * n).fill(-1);
+// 격자를 겹치지 않는 경로로 완전히 분할 -> 항상 풀 수 있는 퍼즐
+function generate(n, pBreak, kMin, kMax, seed){
+  const rnd = mulberry32(seed), N = n * n;
+  let fallback = null;
+  for (let attempt = 0; attempt < 400; attempt++){
+    const owner = new Array(N).fill(-1);
+    const freeCnt = new Array(N);
+    for (let i = 0; i < N; i++) freeCnt[i] = neighbors(i, n).length;
+    const take = i => { owner[i] = 1; neighbors(i, n).forEach(x => freeCnt[x]--); };
     const paths = [];
-    let ok = true;
-    for (let p = 0; p < k && ok; p++){
-      // 남은 칸 중 자유 이웃이 가장 적은 칸에서 시작 (고립 방지)
-      let best = [], bestFree = 99;
-      for (let i = 0; i < n * n; i++){
+    let left = N, bad = false;
+    while (left > 0){
+      let best = [], bf = 99;
+      for (let i = 0; i < N; i++){
         if (owner[i] !== -1) continue;
-        const f = neighbors(i, n).filter(x => owner[x] === -1).length;
-        if (f < bestFree){ bestFree = f; best = [i]; }
-        else if (f === bestFree) best.push(i);
+        if (freeCnt[i] < bf){ bf = freeCnt[i]; best = [i]; }
+        else if (freeCnt[i] === bf) best.push(i);
       }
-      if (!best.length){ ok = false; break; }
       let cur = best[Math.floor(rnd() * best.length)];
-      const path = [cur];
-      owner[cur] = p;
-      const remainingPaths = k - p - 1;
-      const total = n * n;
-      let used = owner.filter(x => x !== -1).length;
-      // 마지막 경로는 남은 칸 전부 먹어야 함
+      const path = [cur]; take(cur); left--;
       for (;;){
         const free = neighbors(cur, n).filter(x => owner[x] === -1);
         if (!free.length) break;
-        if (p < k - 1 && path.length >= 3 && rnd() < 0.18 && total - used >= 2 * remainingPaths) break;
-        // 자유 이웃이 적은 칸 우선 (벽 따라가기)
-        free.sort((a, b) =>
-          neighbors(a, n).filter(x => owner[x] === -1).length -
-          neighbors(b, n).filter(x => owner[x] === -1).length + (rnd() - 0.5) * 2);
-        cur = free[0];
-        owner[cur] = p; path.push(cur); used++;
+        if (path.length >= 3 && rnd() < pBreak) break;
+        free.sort((a, b) => freeCnt[a] - freeCnt[b] + (rnd() - 0.5) * 2.2);
+        cur = free[0]; take(cur); left--; path.push(cur);
       }
+      if (path.length < 2){ bad = true; break; }
       paths.push(path);
     }
-    if (!ok) continue;
-    if (owner.some(x => x === -1)) continue;
-    if (paths.some(p => p.length < 3)) continue;
-    return paths.map(p => [p[0], p[p.length - 1]]);
+    if (bad) continue;
+    const res = paths.map(p => [p[0], p[p.length - 1]]);
+    if (res.length >= kMin && res.length <= kMax) return res;
+    if (!fallback && res.length <= COLORS.length) fallback = res;
   }
-  return null;
+  return fallback;
 }
 
+const levelCache = {};
 function makeLevel(idx){
-  const [n, k] = LEVEL_DEFS[idx % LEVEL_DEFS.length];
-  const seed = 1000 + idx * 7919;
-  let pairs = generate(n, k, seed);
-  if (!pairs) pairs = generate(n, k - 1, seed + 1);
-  return { n, pairs };
+  if (levelCache[idx]) return levelCache[idx];
+  const P = stageParams(idx);
+  let pairs = null;
+  for (let s = 0; !pairs && s < 20; s++)
+    pairs = generate(P.n, P.pBreak, Math.max(3, Math.floor(P.n * P.lo)), Math.min(COLORS.length, Math.ceil(P.n * P.hi)), 1000 + idx * 7919 + s);
+  return (levelCache[idx] = { n: P.n, pairs, kind: P.kind });
 }
 
-if (typeof module !== 'undefined') module.exports = { generate, makeLevel, LEVEL_DEFS, neighbors };
+if (typeof module !== 'undefined') module.exports = { makeLevel, stageParams, TOTAL };
 
 // ---------------- 게임 ----------------
 if (typeof document !== 'undefined') (function(){
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
   const $ = id => document.getElementById(id);
-  let levelIdx = 0, n, pairs, endOf, paths, active = -1, moves = 0, solved = false;
-  const unlocked = loadProgress();
+  let levelIdx = 0, n, pairs, endOf, paths, active = -1, moves = 0, solved = false, kind = 0;
+  let unlocked = loadProgress();
 
-  function loadProgress(){ try { return +localStorage.getItem('dotsUnlocked') || 0; } catch(e){ return 0; } }
-  function saveProgress(v){ try { localStorage.setItem('dotsUnlocked', v); } catch(e){} }
+  function loadProgress(){ try { return Math.min(TOTAL - 1, +localStorage.getItem('dotsUnlocked500') || 0); } catch(e){ return 0; } }
+  function saveProgress(v){ try { localStorage.setItem('dotsUnlocked500', v); } catch(e){} }
 
   function load(idx){
-    levelIdx = ((idx % LEVEL_DEFS.length) + LEVEL_DEFS.length) % LEVEL_DEFS.length;
+    levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
     const lv = makeLevel(levelIdx);
-    n = lv.n; pairs = lv.pairs;
+    n = lv.n; pairs = lv.pairs; kind = lv.kind;
     endOf = new Array(n * n).fill(-1);
     pairs.forEach((p, c) => { endOf[p[0]] = c; endOf[p[1]] = c; });
     paths = pairs.map(() => []);
@@ -185,12 +183,17 @@ if (typeof document !== 'undefined') (function(){
     const filled = paths.reduce((s, p) => s + p.length, 0);
     if (filled !== n * n) { $('msg').textContent = '모든 칸을 채워야 해요!'; return; }
     solved = true;
-    $('msg').textContent = '🎉 클리어! (' + moves + '번 이동)';
-    if (levelIdx + 1 > unlocked) saveProgress(levelIdx + 1);
+    $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 다음 스테이지가 열렸어요';
+    if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; saveProgress(unlocked); }
+    buildSelect();
   }
 
   function updateUI(){
-    $('lvl').textContent = '레벨 ' + (levelIdx + 1) + ' / ' + LEVEL_DEFS.length;
+    $('lvl').textContent = '스테이지 ' + (levelIdx + 1) + ' / ' + TOTAL;
+    const d = $('diff'); d.textContent = KINDS[kind]; d.className = 'chip k' + kind;
+    $('prev').disabled = levelIdx === 0;
+    $('next').disabled = !(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1;
+    $('next').classList.toggle('go', solved && levelIdx < TOTAL - 1);
     const done = paths.filter((_, c) => isComplete(c)).length;
     $('flows').textContent = '연결 ' + done + '/' + pairs.length;
     const filled = paths.reduce((s, p) => s + p.length, 0);
@@ -236,6 +239,18 @@ if (typeof document !== 'undefined') (function(){
   cv.addEventListener('pointercancel', end);
   $('reset').onclick = () => load(levelIdx);
   $('prev').onclick = () => load(levelIdx - 1);
-  $('next').onclick = () => load(levelIdx + 1);
-  load(Math.min(unlocked, LEVEL_DEFS.length - 1));
+  $('next').onclick = () => { if (solved || levelIdx < unlocked) load(levelIdx + 1); };
+  function buildSelect(){
+    const box = $('grid'); box.textContent = '';
+    for (let i = 0; i < TOTAL; i++){
+      const b = document.createElement('button');
+      b.textContent = i + 1;
+      b.className = 'k' + (i % 3) + (i === levelIdx ? ' cur' : '') + (i < unlocked ? ' done' : '');
+      b.disabled = i > unlocked;
+      b.onclick = () => { load(i); $('sel').hidden = true; };
+      box.appendChild(b);
+    }
+  }
+  $('pick').onclick = () => { const s = $('sel'); s.hidden = !s.hidden; if (!s.hidden){ buildSelect(); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); } };
+  load(unlocked);
 })();
