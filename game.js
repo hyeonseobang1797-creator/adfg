@@ -5,9 +5,9 @@ const KINDS = ['쉬움','보통','어려움'];
 // 스테이지 번호(0부터)로 난이도 결정: 쉬움 -> 보통 -> 어려움 반복, 갈수록 어려워짐
 function stageParams(i){
   const kind = i % 3, t = Math.floor(i / 3), u = t / 166;
-  if (kind === 0) return { kind, n: 4 + Math.floor(u * 4), pBreak: 0.30, lo: 0.8, hi: 1.1 };
-  if (kind === 1) return { kind, n: 5 + Math.floor(u * 6), pBreak: 0.18, lo: 0.8, hi: 1.25 };
-  return { kind, n: 6 + Math.floor(Math.pow(u, 0.75) * 9), pBreak: 0.10 - 0.07 * u, lo: 0.8, hi: 1.5 };
+  if (kind === 0) return { kind, n: 4 + Math.floor(u * 3), pBreak: 0.30, lo: 0.8, hi: 1.1 };
+  if (kind === 1) return { kind, n: 5 + Math.floor(u * 4), pBreak: 0.18, lo: 0.8, hi: 1.25 };
+  return { kind, n: 6 + Math.floor(Math.pow(u, 0.8) * 5), pBreak: 0.12 - 0.05 * u, lo: 0.8, hi: 1.5 };
 }
 
 function mulberry32(a){
@@ -59,9 +59,8 @@ function generate(n, pBreak, kMin, kMax, seed){
       paths.push(path);
     }
     if (bad) continue;
-    const res = paths.map(p => [p[0], p[p.length - 1]]);
-    if (res.length >= kMin && res.length <= kMax) return res;
-    if (!fallback && res.length <= COLORS.length) fallback = res;
+    if (paths.length >= kMin && paths.length <= kMax) return paths;
+    if (!fallback && paths.length <= COLORS.length) fallback = paths;
   }
   return fallback;
 }
@@ -73,7 +72,7 @@ function makeLevel(idx){
   let pairs = null;
   for (let s = 0; !pairs && s < 20; s++)
     pairs = generate(P.n, P.pBreak, Math.max(3, Math.floor(P.n * P.lo)), Math.min(COLORS.length, Math.ceil(P.n * P.hi)), 1000 + idx * 7919 + s);
-  return (levelCache[idx] = { n: P.n, pairs, kind: P.kind });
+  return (levelCache[idx] = { n: P.n, sol: pairs, pairs: pairs.map(p => [p[0], p[p.length - 1]]), kind: P.kind });
 }
 
 if (typeof module !== 'undefined') module.exports = { makeLevel, stageParams, TOTAL };
@@ -83,7 +82,7 @@ if (typeof document !== 'undefined') (function(){
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
   const $ = id => document.getElementById(id);
-  let levelIdx = 0, n, pairs, endOf, paths, active = -1, moves = 0, solved = false, kind = 0;
+  let levelIdx = 0, n, sol, pairs, endOf, paths, active = -1, moves = 0, solved = false, kind = 0;
   let unlocked = loadProgress();
 
   function loadProgress(){ try { return Math.min(TOTAL - 1, +localStorage.getItem('dotsUnlocked500') || 0); } catch(e){ return 0; } }
@@ -92,7 +91,7 @@ if (typeof document !== 'undefined') (function(){
   function load(idx){
     levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
     const lv = makeLevel(levelIdx);
-    n = lv.n; pairs = lv.pairs; kind = lv.kind;
+    n = lv.n; pairs = lv.pairs; sol = lv.sol; kind = lv.kind;
     endOf = new Array(n * n).fill(-1);
     pairs.forEach((p, c) => { endOf[p[0]] = c; endOf[p[1]] = c; });
     paths = pairs.map(() => []);
@@ -237,6 +236,15 @@ if (typeof document !== 'undefined') (function(){
   cv.addEventListener('pointermove', e => { if (active !== -1) move(cellFromEvent(e)); });
   cv.addEventListener('pointerup', end);
   cv.addEventListener('pointercancel', end);
+  $('hint').onclick = () => {
+    if (solved) return;
+    const c = paths.findIndex((_, k) => !isComplete(k));
+    if (c === -1) return;
+    const line = sol[c].slice();
+    paths[c] = line;
+    paths.forEach((p, k) => { if (k !== c){ const j = p.findIndex(x => line.includes(x)); if (j !== -1) paths[k] = p.slice(0, j); } });
+    moves++; checkWin(); draw(); updateUI();
+  };
   $('reset').onclick = () => load(levelIdx);
   $('prev').onclick = () => load(levelIdx - 1);
   $('next').onclick = () => { if (solved || levelIdx < unlocked) load(levelIdx + 1); };
