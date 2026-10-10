@@ -167,10 +167,8 @@ if (typeof document !== 'undefined') (function(){
   const ctx = cv.getContext('2d');
   const $ = id => document.getElementById(id);
   let levelIdx = 0, n, sol, pairs, endOf, paths, active = -1, moves = 0, solved = false, kind = 0;
-  let unlocked = loadProgress();
+  let unlocked = 0;   // 로그아웃 상태에서는 저장하지 않는다
 
-  function loadProgress(){ try { return Math.min(TOTAL - 1, +localStorage.getItem('dotsUnlocked500') || 0); } catch(e){ return 0; } }
-  function saveProgress(v){ try { localStorage.setItem('dotsUnlocked500', v); } catch(e){} }
 
   function load(idx){
     levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
@@ -345,5 +343,104 @@ if (typeof document !== 'undefined') (function(){
     }
   }
   $('pick').onclick = () => { const s = $('sel'); s.hidden = !s.hidden; if (!s.hidden){ buildSelect(); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); } };
-  load(unlocked);
+  // ---------------- 계정 ----------------
+  let db = null, account = null;   // account = { key, name, hash }
+  const AUTO = 'dotsAuto';
+  const enc = new TextEncoder();
+  const hex = u8 => Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
+  const keyOf = name => 'u' + hex(enc.encode(name.toLowerCase()));
+  async function hashPw(name, pw, salt){
+    const k = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt + name.toLowerCase()), iterations: 100000 }, k, 256);
+    return hex(new Uint8Array(bits));
+  }
+  function saveProgress(v){
+    if (!account || !db) return;
+    db.doc('accounts/' + account.key).update({ unlocked: v }).catch(() => { $('msg').textContent = '진행 저장에 실패했어요'; });
+  }
+  function setAuto(on){
+    try {
+      if (on && account) localStorage.setItem(AUTO, JSON.stringify({ key: account.key, hash: account.hash }));
+      else localStorage.removeItem(AUTO);
+    } catch (e) {}
+  }
+  function autoOn(){ try { return !!localStorage.getItem(AUTO); } catch (e) { return false; } }
+  function renderAcct(){
+    const out = !account;
+    $('guestBox').hidden = !out;
+    $('userBox').hidden = out;
+    if (!out){ $('who').textContent = account.name; $('auto').checked = autoOn(); }
+    $('guestBox').querySelector('button').disabled = !db;
+    $('note').textContent = out ? (db ? '로그아웃 상태에서는 진행이 저장되지 않아요' : '이 화면에서는 로그인을 쓸 수 없어요') : '진행이 자동으로 저장돼요';
+  }
+  function enter(acc, data, auto){
+    account = acc; unlocked = Math.min(TOTAL - 1, +data.unlocked || 0);
+    setAuto(auto); renderAcct(); buildSelect(); load(unlocked);
+  }
+  function logout(){
+    account = null; setAuto(false); unlocked = 0;
+    renderAcct(); buildSelect(); load(0);
+  }
+  let mode = 'login';
+  function setMode(m){
+    mode = m;
+    $('tabLogin').classList.toggle('on', m === 'login');
+    $('tabSignup').classList.toggle('on', m === 'signup');
+    $('pw2row').hidden = m !== 'signup';
+    $('go').textContent = m === 'login' ? '로그인' : '회원가입';
+    $('err').textContent = '';
+  }
+  async function submitAuth(e){
+    e.preventDefault();
+    const name = $('uid').value.trim(), pw = $('pw').value, err = $('err');
+    err.textContent = '';
+    if (!db){ err.textContent = '로그인을 쓸 수 없어요'; return; }
+    if (!/^[A-Za-z0-9_가-힣]{2,16}$/.test(name)){ err.textContent = '아이디는 2~16자의 글자, 숫자, _ 만 쓸 수 있어요'; return; }
+    if (pw.length < 4){ err.textContent = '비밀번호는 4자 이상이어야 해요'; return; }
+    $('go').disabled = true;
+    try {
+      const ref = db.doc('accounts/' + keyOf(name)), snap = await ref.get();
+      if (mode === 'signup'){
+        if (pw !== $('pw2').value){ err.textContent = '비밀번호가 서로 달라요'; return; }
+        if (snap.exists){ err.textContent = '이미 있는 아이디예요'; return; }
+        const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+        const hash = await hashPw(name, pw, salt);
+        await ref.set({ name, salt, hash, unlocked: 0, created: Date.now() });
+        enter({ key: keyOf(name), name, hash }, { unlocked: 0 }, $('autoNew').checked);
+      } else {
+        const d = snap.exists && snap.data();
+        const hash = d ? await hashPw(d.name, pw, d.salt) : '';
+        if (!d || hash !== d.hash){ err.textContent = '아이디 또는 비밀번호가 맞지 않아요'; return; }
+        enter({ key: keyOf(name), name: d.name, hash }, d, $('autoNew').checked);
+      }
+      $('auth').hidden = true; $('pw').value = ''; $('pw2').value = '';
+    } catch (ex) {
+      err.textContent = '처리하지 못했어요. 잠시 뒤에 다시 시도해 주세요';
+    } finally { $('go').disabled = false; }
+  }
+  $('openAuth').onclick = () => { setMode('login'); $('auth').hidden = false; $('uid').focus(); };
+  $('closeAuth').onclick = () => { $('auth').hidden = true; };
+  $('tabLogin').onclick = () => setMode('login');
+  $('tabSignup').onclick = () => setMode('signup');
+  $('authForm').addEventListener('submit', submitAuth);
+  $('logout').onclick = logout;
+  $('auto').onchange = e => setAuto(e.target.checked);
+
+  load(0);
+  renderAcct();
+  (async function initAuth(){
+    try {
+      db = window.claude && window.claude.use ? await window.claude.use('db') : null;
+    } catch (e) { db = null; }
+    renderAcct();
+    if (!db) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(AUTO) || 'null');
+      if (!saved) return;
+      const snap = await db.doc('accounts/' + saved.key).get();
+      const d = snap.exists && snap.data();
+      if (d && d.hash === saved.hash) enter({ key: saved.key, name: d.name, hash: d.hash }, d, true);
+      else setAuto(false);
+    } catch (e) {}
+  })();
 })();
