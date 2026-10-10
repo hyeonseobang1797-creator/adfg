@@ -208,18 +208,16 @@ if (typeof document !== 'undefined') (function(){
     const W = cv.width, s = W / n;
     ctx.clearRect(0, 0, W, W);
     ctx.fillStyle = '#0b0e15'; ctx.fillRect(0, 0, W, W);
-    ctx.strokeStyle = '#2a3147'; ctx.lineWidth = 1;
-    for (let i = 0; i <= n; i++){
-      ctx.beginPath(); ctx.moveTo(i * s, 0); ctx.lineTo(i * s, W); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, i * s); ctx.lineTo(W, i * s); ctx.stroke();
-    }
+    ctx.fillStyle = '#3a4152';
+    for (let i = 0; i < n * n; i++)
+      ctx.fillRect((i % n) * s + 2, Math.floor(i / n) * s + 2, s - 4, s - 4);
     const ctr = i => [(i % n + .5) * s, (Math.floor(i / n) + .5) * s];
     paths.forEach((p, c) => {
       if (!p.length) return;
       const col = COLORS[c % COLORS.length];
       // 칸 배경
-      ctx.globalAlpha = .18; ctx.fillStyle = col;
-      p.forEach(i => { ctx.fillRect((i % n) * s + 1, Math.floor(i / n) * s + 1, s - 2, s - 2); });
+      ctx.globalAlpha = .35; ctx.fillStyle = col;
+      p.forEach(i => { ctx.fillRect((i % n) * s + 2, Math.floor(i / n) * s + 2, s - 4, s - 4); });
       ctx.globalAlpha = 1;
       ctx.strokeStyle = col; ctx.lineWidth = s * .34; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.beginPath();
