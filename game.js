@@ -1,13 +1,10 @@
-const COLORS = ['#ff4d4d','#3fa9ff','#ffd23f','#3ddc84','#ff8c1a','#c26bff','#00e5d0','#ff6bb5','#a0a8ff','#b5651d','#c8ff3f','#ffffff','#7a5cff','#ff9e9e','#2f8f5b','#d4a5ff'];
+const COLORS = ['#ff4d4d','#3fa9ff','#ffd23f','#3ddc84','#ff8c1a','#c26bff','#00e5d0','#ff6bb5','#a0a8ff','#b5651d','#c8ff3f','#ffffff','#7a5cff','#ff9e9e','#2f8f5b','#d4a5ff','#4d6bff','#ffb36b','#6bffd8','#e04dff','#9aff4d','#ff4d9a','#4dd2ff','#d9b38c'];
 const TOTAL = 500;
-const KINDS = ['쉬움','보통','어려움'];
 
-// 스테이지 번호(0부터)로 난이도 결정: 쉬움 -> 보통 -> 어려움 반복, 갈수록 어려워짐
+// 스테이지가 올라갈수록 조금씩 계속 어려워진다: 판이 커지고, 선이 길고 구불해지고, 색이 늘어난다
 function stageParams(i){
-  const kind = i % 3, t = Math.floor(i / 3), u = t / 166;
-  if (kind === 0) return { kind, n: 4 + Math.floor(u * 3), pBreak: 0.30, lo: 0.8, hi: 1.1 };
-  if (kind === 1) return { kind, n: 7 + Math.floor(u * 5), pBreak: 0.14, lo: 0.8, hi: 1.25 };
-  return { kind, n: 9 + Math.floor(Math.pow(u, 0.7) * 7), pBreak: 0.08 - 0.05 * u, lo: 0.8, hi: 1.5 };
+  const d = i / (TOTAL - 1);
+  return { kind: 0, n: 4 + Math.min(11, Math.floor(d * 12)), pBreak: 0.30 - 0.22 * d, lo: 0.8, hi: 1.0 + 0.4 * d };
 }
 
 function mulberry32(a){
@@ -60,22 +57,109 @@ function generate(n, pBreak, kMin, kMax, seed){
     }
     if (bad) continue;
     if (paths.length >= kMin && paths.length <= kMax) return paths;
-    if (!fallback && paths.length <= COLORS.length) fallback = paths;
+    if (!fallback && paths.length <= 16) fallback = paths;
   }
   return fallback;
+}
+
+// 해가 몇 개인지 센다 (최대 2개까지). 시간 초과면 aborted
+function solve(n, sol, nodeLimit){
+  const N = n * n, K = sol.length;
+  const owner = new Int8Array(N).fill(-1), head = new Int32Array(K), target = new Int32Array(K), done = new Uint8Array(K);
+  const nb = []; for (let i = 0; i < N; i++) nb.push(neighbors(i, n));
+  for (let c = 0; c < K; c++){
+    head[c] = sol[c][0]; target[c] = sol[c][sol[c].length - 1];
+    owner[head[c]] = c; owner[target[c]] = c;
+  }
+  const found = []; let nodes = 0, aborted = false;
+  function ok(){
+    for (let i = 0; i < N; i++){
+      if (owner[i] !== -1) continue;
+      let av = 0; const L = nb[i];
+      for (let j = 0; j < L.length; j++){
+        const x = L[j], o = owner[x];
+        if (o === -1 || (!done[o] && (head[o] === x || target[o] === x))) av++;
+      }
+      if (av < 2) return false;
+    }
+    return true;
+  }
+  function dfs(){
+    if (aborted || found.length >= 2) return;
+    if (++nodes > nodeLimit){ aborted = true; return; }
+    let bc = -1, bo = null;
+    for (let c = 0; c < K; c++){
+      if (done[c]) continue;
+      const opts = nb[head[c]].filter(x => owner[x] === -1 || x === target[c]);
+      if (!opts.length) return;
+      if (!bo || opts.length < bo.length){ bc = c; bo = opts; }
+    }
+    if (bc === -1){
+      for (let i = 0; i < N; i++) if (owner[i] === -1) return;
+      found.push(Array.from(owner)); return;
+    }
+    const c = bc, oldHead = head[c];
+    for (const x of bo){
+      if (x === target[c]){ done[c] = 1; if (ok()) dfs(); done[c] = 0; }
+      else { owner[x] = c; head[c] = x; if (ok()) dfs(); owner[x] = -1; head[c] = oldHead; }
+      if (aborted || found.length >= 2) return;
+    }
+  }
+  dfs();
+  return { found, aborted };
+}
+
+// 풀이가 여러 개면 두 풀이가 갈리는 곳에서 선을 둘로 쪼개 해를 하나로 만든다
+function makeUnique(n, sol, rnd, deadline){
+  sol = sol.map(p => p.slice());
+  for (let round = 0; round < 40 && Date.now() < deadline; round++){
+    const r = solve(n, sol, 15000);
+    if (!r.aborted && r.found.length === 1) return { sol, unique: true };
+    if (sol.length >= COLORS.length) break;
+    const mine = new Array(n * n);
+    sol.forEach((p, c) => p.forEach(x => mine[x] = c));
+    let cand = [];
+    if (r.found.length >= 2) {
+      const other = r.found[1].some((v, i) => v !== mine[i]) ? r.found[1] : r.found[0];
+      for (let i = 0; i < n * n; i++) if (other[i] !== mine[i]) cand.push(i);
+    } else {
+      sol.forEach(p => { if (p.length >= 4) cand.push(p[p.length >> 1]); });
+    }
+    let did = false;
+    for (let t = 0; t < 60 && cand.length && !did; t++){
+      const x = cand[Math.floor(rnd() * cand.length)];
+      const c = mine[x], p = sol[c], j = p.indexOf(x);
+      for (const cut of rnd() < .5 ? [j, j - 1] : [j - 1, j]){
+        // p[0..cut] 와 p[cut+1..] 모두 길이 2 이상
+        if (cut >= 1 && p.length - cut - 1 >= 2){
+          sol.splice(c, 1, p.slice(0, cut + 1), p.slice(cut + 1)); did = true; break;
+        }
+      }
+    }
+    if (!did) break;
+  }
+  return { sol, unique: false };
 }
 
 const levelCache = {};
 function makeLevel(idx){
   if (levelCache[idx]) return levelCache[idx];
   const P = stageParams(idx);
-  let pairs = null;
-  for (let s = 0; !pairs && s < 20; s++)
-    pairs = generate(P.n, P.pBreak, Math.max(3, Math.floor(P.n * P.lo)), Math.min(COLORS.length, Math.ceil(P.n * P.hi)), 1000 + idx * 7919 + s);
-  return (levelCache[idx] = { n: P.n, sol: pairs, pairs: pairs.map(p => [p[0], p[p.length - 1]]), kind: P.kind });
+  let pairs = null, res = null;
+  const deadline = Date.now() + 500;
+  for (let t = 0; t < 6; t++){
+    let base = null;
+    for (let s = 0; !base && s < 20; s++)
+      base = generate(P.n, P.pBreak, Math.max(3, Math.floor(P.n * P.lo)), Math.min(16, Math.ceil(P.n * P.hi)), 1000 + idx * 7919 + s + t * 131);
+    const r = makeUnique(P.n, base, mulberry32(77 + idx + t), deadline);
+    if (!res || (r.unique && !res.unique)) res = r;
+    if (res.unique || Date.now() > deadline) break;
+  }
+  pairs = res.sol;
+  return (levelCache[idx] = { n: P.n, sol: pairs, pairs: pairs.map(p => [p[0], p[p.length - 1]]), kind: P.kind, unique: res.unique });
 }
 
-if (typeof module !== 'undefined') module.exports = { makeLevel, stageParams, TOTAL };
+if (typeof module !== 'undefined') module.exports = { solve, makeLevel, stageParams, TOTAL };
 
 // ---------------- 게임 ----------------
 if (typeof document !== 'undefined') (function(){
@@ -193,7 +277,6 @@ if (typeof document !== 'undefined') (function(){
 
   function updateUI(){
     $('lvl').textContent = '스테이지 ' + (levelIdx + 1) + ' / ' + TOTAL;
-    const d = $('diff'); d.textContent = KINDS[kind]; d.className = 'chip k' + kind;
     $('prev').disabled = levelIdx === 0;
     $('next').disabled = !(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1;
     $('next').classList.toggle('go', solved && levelIdx < TOTAL - 1);
