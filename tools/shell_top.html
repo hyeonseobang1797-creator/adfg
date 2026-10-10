@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#10131c">
+<title>점 잇기 퍼즐</title>
+<style>
+  /* Layout: centered single-column game board with a compact status bar above */
+  :root{--bg:#10131c;--panel:#1a1f2e;--fg:#e8ecf5;--muted:#8791a8;--line:#2a3147;--accent:#5b8cff;--ok:#7dffb0;color-scheme:dark}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;padding-inline:16px;padding-block:16px;display:flex;flex-direction:column;align-items:center;gap:12px;-webkit-user-select:none;user-select:none}
+  h1{margin:4px 0 0;font-size:22px;text-wrap:balance}
+  .sub{color:var(--muted);font-size:13px;margin:0;text-align:center;max-width:46ch}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:15px;cursor:pointer;font-family:inherit}
+  button:hover{border-color:var(--accent)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .stat{background:var(--panel);border-radius:10px;padding:8px 14px;font-size:14px;text-align:center;font-variant-numeric:tabular-nums}
+  canvas{width:min(100%,520px);aspect-ratio:1;touch-action:none;border-radius:14px;background:#0b0e15}
+  #msg{min-height:24px;font-weight:600;color:var(--ok)}
+  button:disabled{opacity:.35;cursor:default}
+  button.go{border-color:var(--ok);color:var(--ok);animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 4px #7dffb033}}
+  @media (prefers-reduced-motion:reduce){button.go{animation:none}}
+  .chip{border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700}
+  .chip.k0,#grid .k0{--c:#3ddc84}.chip.k1,#grid .k1{--c:#ffd23f}.chip.k2,#grid .k2{--c:#ff4d4d}.chip.k3,#grid .k3{--c:#4dd2ff}
+  .chip{background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
+  #sel{width:min(100%,520px);max-height:260px;overflow-y:auto;background:var(--panel);border-radius:12px;padding:10px}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px}
+  #grid button{padding:8px 0;font-size:13px;font-variant-numeric:tabular-nums;border-color:color-mix(in srgb,var(--c) 40%,var(--line))}
+  #grid button.done{background:color-mix(in srgb,var(--c) 16%,var(--panel))}
+  #grid button.cur{outline:2px solid var(--fg)}
+  .acct{display:flex;flex-direction:column;align-items:center;gap:6px}
+  #userBox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+  .note{color:var(--muted);font-size:12px}
+  .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  #auth{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+  #auth[hidden]{display:none}
+  #authForm{background:var(--panel);border-radius:14px;padding:18px;width:min(100%,340px);display:flex;flex-direction:column;gap:8px}
+  #authForm label{font-size:13px;color:var(--muted)}
+  #authForm input[type=text],#authForm input[type=password],#uid{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:15px;font-family:inherit}
+  .tabs,.row{display:flex;gap:8px}
+  .tabs button{flex:1}.tabs button.on{border-color:var(--accent);color:var(--accent)}
+  .row .primary{flex:1;background:var(--accent);border-color:var(--accent);color:#fff}
+  #err{min-height:18px;font-size:13px;color:#ff7a7a}
+  html{overscroll-behavior:none;-webkit-text-size-adjust:100%}
+  body{min-height:100%;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  button{min-height:40px}
+</style>
+</head>
+<body>
+<h1>점 잇기 퍼즐</h1>
+<p class="sub">같은 색 점끼리 선으로 연결하고, 판의 모든 칸을 채우세요. 선은 서로 겹칠 수 없어요.</p>
+<div class="acct">
+  <div id="guestBox"><button id="openAuth">로그인 / 회원가입</button></div>
+  <div id="userBox" hidden><b id="who"></b><label class="chk"><input type="checkbox" id="auto"> 자동 로그인</label><button id="logout">로그아웃</button></div>
+  <div class="note" id="note"></div>
+</div>
+<div id="auth" hidden>
+  <form id="authForm" autocomplete="off">
+    <div class="tabs"><button type="button" id="tabLogin" class="on">로그인</button><button type="button" id="tabSignup">회원가입</button></div>
+    <label for="uid">아이디</label><input id="uid" maxlength="16" autocomplete="username">
+    <label for="pw">비밀번호</label><input id="pw" type="password" autocomplete="current-password">
+    <div id="pw2row" hidden><label for="pw2">비밀번호 확인</label><input id="pw2" type="password" autocomplete="new-password"></div>
+    <label class="chk"><input type="checkbox" id="autoNew" checked> 자동 로그인</label>
+    <div id="err" role="alert"></div>
+    <div class="row"><button type="submit" id="go" class="primary">로그인</button><button type="button" id="closeAuth">닫기</button></div>
+  </form>
+</div>
+<div class="bar">
+  <button id="prev" aria-label="이전 스테이지">◀</button>
+  <div class="stat" id="lvl">스테이지 1</div><div class="chip k0" id="diff" hidden></div>
+  <button id="next" aria-label="다음 스테이지">▶</button>
+  <div class="stat" id="flows">연결 0/0</div>
+  <div class="stat" id="fill">채움 0%</div>
+  <button id="hint">힌트</button>
+  <button id="reset">다시</button>
+  <button id="pick">목록</button>
+</div>
+<canvas id="c" width="520" height="520"></canvas>
+<div id="msg"></div>
+<div id="sel" hidden><div id="grid"></div></div>
+<script>
+// 이 파일을 단독으로 열면 계정은 이 기기의 브라우저에만 저장된다
+(function(){
+  if (window.claude && window.claude.use) return;
+  var KEY = 'dotsLocalDb';
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
+  function save(o){ localStorage.setItem(KEY, JSON.stringify(o)); }
+  var db = { doc: function(p){ return {
+    get: async function(){ var d = load()[p]; return { exists: !!d, data: function(){ return d; } }; },
+    set: async function(x){ var o = load(); o[p] = x; save(o); },
+    update: async function(x){ var o = load(); o[p] = Object.assign({}, o[p], x); save(o); }
+  }; } };
+  window.claude = { use: async function(n){ return n === 'db' ? db : null; } };
+})();
+</script>
+<script>
