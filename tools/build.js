@@ -36,9 +36,9 @@ function makeLevel(idx){
 
 `;
 let top = fs.readFileSync(__dirname + '/shell_top.html', 'utf8');
-top = top.replace('</style>', '  #modes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}\n  #musicBtn{font-size:13px;padding:6px 12px;min-height:34px}\n  #musicBtn[aria-pressed=false]{opacity:.6}\n  #modes button.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}\n</style>');
+top = top.replace('</style>', '  #modes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}\n    h1,.sub,.note{text-shadow:0 1px 4px rgba(0,0,0,.6)}\n  .sub,.note{color:#e3e9f7}\n  #musicBtn{font-size:13px;padding:6px 12px;min-height:34px}\n  #musicBtn[aria-pressed=false]{opacity:.6}\n  #modes button.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}\n</style>');
 top = top.replace('<div id="modes">', '<div id="modes">')
 top = top.replace('<div class="bar">', '<div id="modes"><button data-mode="easy">쉬움</button><button data-mode="normal">보통</button><button data-mode="hard">어려움</button><button data-mode="extreme">익스트림</button></div>\n<div class="musicrow"><button id="musicBtn" aria-pressed="true">♪ 음악 켬</button></div>\n<div class="bar">');
-const out = top + runtimeHead + data + decode + fs.readFileSync(__dirname + '/fx.js', 'utf8') + fs.readFileSync(__dirname + '/game_part.js', 'utf8') + fs.readFileSync(__dirname + '/shell_bottom.html', 'utf8');
+const out = top + runtimeHead + data + decode + fs.readFileSync(__dirname + '/bg.js', 'utf8') + fs.readFileSync(__dirname + '/music.js', 'utf8') + fs.readFileSync(__dirname + '/game_part.js', 'utf8') + fs.readFileSync(__dirname + '/shell_bottom.html', 'utf8');
 fs.writeFileSync(__dirname + '/../index.html', out);
 console.log('built, bytes', out.length);
