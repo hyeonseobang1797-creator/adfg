@@ -70,7 +70,10 @@
     <p class="sub">실제 식물처럼 물·빛·온도·영양을 살피며 씨앗부터 키워 보세요. 시간이 흐르면 계절과 날씨도 바뀌어요.</p>
     <h2>1. 어떤 식물을 키울까요?</h2>
     <div id="spList"></div>
-    <h2>2. 언제 심을까요?</h2>
+    <h2>2. 난이도</h2>
+    <div class="row" id="diffRow"></div>
+    <p class="tips" id="diffTip"></p>
+    <h2>3. 언제 심을까요?</h2>
     <div class="row">
       <select id="monthSel"></select>
     </div>
@@ -120,6 +123,12 @@ const lerp = (a,b,t) => a+(b-a)*t;
 const SAVE_KEY = 'smallpot_v1', HIST_KEY = 'smallpot_hist_v1';
 const MONTH_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
 const MONTH_START = MONTH_DAYS.reduce((a,d,i)=>(a.push(i?a[i-1]+MONTH_DAYS[i-1]:0),a),[]);
+const DIFFS = [
+  {name:'쉬움',emoji:'🌼',desc:'벌레 없음, 피해 절반, 천천히 마르는 흙, 측정기·안내 모두 표시',dmg:.5,evap:.6,pest:0,rot:.5,regen:2,swing:.7,bands:true,meters:true,alerts:true},
+  {name:'보통',emoji:'🌿',desc:'기본 설정. 측정기와 안내가 표시돼요',dmg:1,evap:1,pest:1,rot:1,regen:1,swing:1,bands:true,meters:true,alerts:true},
+  {name:'어려움',emoji:'🔥',desc:'흙이 빨리 마르고 피해·벌레·과습이 심해요. 적정 범위 표시 없음',dmg:1.6,evap:1.3,pest:2.5,rot:1.5,regen:.6,swing:1.15,bands:false,meters:true,alerts:true},
+  {name:'익스트림',emoji:'💀',desc:'측정기·경고 없음! 오직 식물의 모습으로만 판단. 날씨 변덕·피해 극심',dmg:2.4,evap:1.6,pest:4,rot:2,regen:.3,swing:1.3,bands:false,meters:false,alerts:false}
+];
 const SPEEDS = [{l:'⏸',h:0},{l:'1×',h:0.5},{l:'6×',h:3},{l:'24×',h:12},{l:'96×',h:48}];
 
 // water/light/temp ranges are the "comfortable" bands; stages use growing-degree-days (GDD)
@@ -174,7 +183,7 @@ const MONTH_TIPS = {
 /* ============================== state ============================== */
 let S = null, hist = [];
 let speedIdx = 2, acc = 0, lastFrame = 0, lastUI = 0, tAnim = 0;
-let selSp = 'basil';
+let selSp = 'basil', selDiff = 1;
 
 function loadHist(){ try{ hist = JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch(e){ hist=[]; } }
 function saveHist(){ try{ localStorage.setItem(HIST_KEY,JSON.stringify(hist.slice(-30))); }catch(e){} }
@@ -184,8 +193,8 @@ function newPlant(sp){
   return {sp,pot:0,M:70,N:45,stage:0,dev:0,m:0,hp:100,rot:0,seedRot:0,dryH:0,pest:0,pestType:'',
     branch:0,suck:0,fruits:[],chl:0,burnV:0,leggy:0,droopV:0,harvest:0,cause:{},dead:false,age:0,flags:{}};
 }
-function newGame(sp,month){
-  S = {seed:Math.floor(Math.random()*1e6),m0:month,t:8,loc:'window',plant:newPlant(sp),log:[],cooldown:{},lastReal:Date.now()};
+function newGame(sp,month,diff){
+  S = {diff:diff,seed:Math.floor(Math.random()*1e6),m0:month,t:8,loc:'window',plant:newPlant(sp),log:[],cooldown:{},lastReal:Date.now()};
   say('🌰 씨앗을 심고 물을 흠뻑 줬어요. 싹이 트길 기다려 봐요.','good');
 }
 
@@ -222,6 +231,9 @@ function lightAt(loc,e){
   }
 }
 function tempAt(loc,e){
+  const T=tempAt0(loc,e), sw=DIFFS[S.diff??1].swing; return 20+(T-20)*sw;
+}
+function tempAt0(loc,e){
   const inside=18+.2*(e.Tout-10);
   switch(loc){
     case 'window': return inside+3*e.sunC-Math.max(0,(inside-e.Tout)*.1)*(e.sun>0?0:1);
@@ -273,7 +285,8 @@ function step(){
 
   // --- water balance ---
   if(S.loc==='balcony'&&e.raining){ M+=3.5; P.N-=.1; if(P.pest>0) P.pest*=.97; }
-  const evap=.55*(.6+Math.max(T,0)/25)*(.4+.8*L)/pot.vol*clamp(.25+M/80,.25,1);
+  const D=DIFFS[S.diff??1];
+  const evap=D.evap*.55*(.6+Math.max(T,0)/25)*(.4+.8*L)/pot.vol*clamp(.25+M/80,.25,1);
   const transp=P.stage>=1?.06*sp.thirst*Math.pow(P.m,.6)*(.2+L)*(.6+Math.max(T,0)/25)/pot.vol*(M>wp?1:.2):0;
   M-=evap+transp;
   if(M>sp.fc){ const ex=(M-sp.fc)*.15; M-=ex; P.N-=ex*.12; }
@@ -282,7 +295,7 @@ function step(){
 
   // --- root rot (too wet for too long) ---
   const wh=sp.water[1];
-  if(M>wh+8) P.rot=Math.min(100,P.rot+(.5+(M-wh-8)*.05)*sp.rotK);
+  if(M>wh+8) P.rot=Math.min(100,P.rot+(.5+(M-wh-8)*.05)*sp.rotK*D.rot);
   else if(M<wh) P.rot=Math.max(0,P.rot-.25);
 
   const gdd=Math.max(0,T-sp.tbase)/24;
@@ -290,7 +303,7 @@ function step(){
   const hpF=Math.sqrt(clamp(P.hp,0,100)/100);
   let dmg=0;
   let bd=0;
-  const add=(k,v)=>{ dmg+=v; P.cause[k]=(P.cause[k]||0)+v; if(k==='burn'||k==='salt'||k==='heat'||k==='cold') bd+=v; };
+  const add=(k,v)=>{ v*=D.dmg; dmg+=v; P.cause[k]=(P.cause[k]||0)+v; if(k==='burn'||k==='salt'||k==='heat'||k==='cold') bd+=v; };
 
   if(P.stage===0){
     // seed: waits in the soil until it is moist and warm enough
@@ -338,7 +351,7 @@ function step(){
     // --- pests ---
     if(P.stage>=2){
       if(P.pest<=0){
-        if(Math.random()<.0006*(1+(M>78?1:0)+(T>24&&M<sp.water[0]+10?1:0))){
+        if(Math.random()<.0006*D.pest*(1+(M>78?1:0)+(T>24&&M<sp.water[0]+10?1:0))){
           P.pest=3; P.pestType=M>78?'gnat':(T>24&&M<sp.water[0]+10)?'mite':'aphid';
         }
       } else P.pest=Math.min(100,P.pest*1.012+.05);
@@ -357,9 +370,9 @@ function step(){
   { let ns=0; for(let i=0;i<sp.stages.length;i++) if(P.dev>=sp.stages[i][1]) ns=i;
     if(ns>P.stage){ P.stage=ns; stageMsg(P,sp); } }
 
-  if(dmg<.001) { if(P.hp<100) P.hp=Math.min(100,P.hp+.12); } else P.hp-=dmg;
+  if(dmg<.001) { if(P.hp<100) P.hp=Math.min(100,P.hp+.12*D.regen); } else P.hp-=dmg;
   if(P.stage>=1&&P.m<.02) P.m=.02;
-  alerts(P,sp,e,L,T,wp);
+  if(D.alerts) alerts(P,sp,e,L,T,wp);
   if(P.hp<=0){
     const c=Object.entries(P.cause).sort((a,b)=>b[1]-a[1])[0];
     die(c?c[0]:'old',null);
@@ -395,7 +408,7 @@ function die(cause,custom){
     burn:'강한 햇빛에 잎이 타 버렸어요.',salt:'비료가 너무 많았어요.',pest:'벌레 피해가 너무 컸어요.',dark:'빛이 부족해 시들어 갔어요.',
     old:'한 해를 살고 수명을 다했어요.',seed:'싹이 트지 못했어요.'}[cause]||'';
   say(`🪦 ${custom||('식물이 시들었어요. '+why)}`,'bad');
-  hist.push({name:sp.name,emoji:sp.emoji,days:Math.floor(P.age/24),stage:sp.stages[P.stage][0],harvest:P.harvest,cause:cause,why,old:cause==='old'});
+  hist.push({diff:S.diff,name:sp.name,emoji:sp.emoji,days:Math.floor(P.age/24),stage:sp.stages[P.stage][0],harvest:P.harvest,cause:cause,why,old:cause==='old'});
   saveHist(); save();
   setTimeout(showDead,400);
 }
@@ -733,13 +746,16 @@ function renderUI(force){
   if(!S) return;
   const P=S.plant, sp=SPECIES[P.sp], pot=POTS[P.pot], e=S.cur?S.cur.e:envAt(S.t), L=S.cur?S.cur.L:0, T=S.cur?S.cur.T:20;
   $('hTitle').textContent=`${sp.emoji} ${sp.name}`;
-  $('hStage').textContent=`${sp.stages[P.stage][0]} · ${Math.floor(P.age/24)+1}일째 · ${pot.name}${P.sp==='tomato'||P.sp==='basil'?` · 수확 ${P.harvest}${P.sp==='basil'?'g':'개'}`:''}`;
+  const D=DIFFS[S.diff??1];
+  $('hStage').textContent=`${D.emoji}${D.name} · ${sp.stages[P.stage][0]} · ${Math.floor(P.age/24)+1}일째 · ${pot.name}${P.sp==='tomato'||P.sp==='basil'?` · 수확 ${P.harvest}${P.sp==='basil'?'g':'개'}`:''}`;
   const wx=WX[e.raining?'rain':e.kind]||WX.clear;
   $('hEnv').innerHTML=`${dateStr(S.t)} ${pad2(e.hr)}:00<br>${e.sun>0||e.hr<6||e.hr>=18?'':''}${wx[0]} ${wx[1]} · 바깥 ${Math.round(e.Tout)}℃`;
-  setBar('mw',P.M,100,sp.water,Math.round(P.M)+'%');
-  setBar('mn',P.N,100,[35,80],Math.round(P.N)+'%');
-  setBar('ml',L,1,[sp.light[0],sp.burn||1],Math.round(L*100)+'%');
-  setBar('mt',T+10,55,[sp.temp[0]+10,sp.temp[1]+10],Math.round(T)+'℃');
+  $('meters').classList.toggle('hidden',!D.meters);
+  const bd=D.bands?1:0;
+  setBar('mw',P.M,100,bd&&sp.water,Math.round(P.M)+'%');
+  setBar('mn',P.N,100,bd&&[35,80],Math.round(P.N)+'%');
+  setBar('ml',L,1,bd&&[sp.light[0],sp.burn||1],Math.round(L*100)+'%');
+  setBar('mt',T+10,55,bd&&[sp.temp[0]+10,sp.temp[1]+10],Math.round(T)+'℃');
   setBar('mh',P.hp,100,null,Math.round(Math.max(0,P.hp))+'%');
   $('obs').innerHTML=observe(P,sp,L,T).map(x=>`<div>${x}</div>`).join('');
   document.querySelectorAll('#speed button').forEach(b=>b.classList.toggle('on',+b.dataset.sp===speedIdx));
@@ -759,7 +775,9 @@ function renderUI(force){
 function showStart(){
   $('game').classList.add('hidden'); $('start').classList.remove('hidden');
   $('spList').innerHTML=Object.entries(SPECIES).map(([k,s])=>`<button class="sp${k===selSp?' sel':''}" data-sp="${k}"><span class="tag">난이도 ${s.diff}</span><b>${s.emoji} ${s.name}</b><small>${s.desc}</small><small>💡 ${s.tip}</small></button>`).join('');
-  $('histList').innerHTML=hist.length?hist.slice().reverse().map(h=>`<div class="hist">${h.emoji} ${h.name} · ${h.days}일 · ${h.stage}${h.harvest?` · 수확 ${h.harvest}`:''}<br><span style="color:var(--muted)">${h.old?'🏅 ':'🪦 '}${h.why||'다음에 다시 도전!'}</span></div>`).join(''):'아직 없어요.';
+  $('histList').innerHTML=hist.length?hist.slice().reverse().map(h=>`<div class="hist">${h.emoji} ${h.name}${h.diff!==undefined?` (${DIFFS[h.diff].name})`:''} · ${h.days}일 · ${h.stage}${h.harvest?` · 수확 ${h.harvest}`:''}<br><span style="color:var(--muted)">${h.old?'🏅 ':'🪦 '}${h.why||'다음에 다시 도전!'}</span></div>`).join(''):'아직 없어요.';
+  $('diffRow').innerHTML=DIFFS.map((d,i)=>`<button class="sp${i===selDiff?' sel':''}" data-df="${i}" style="margin:0;padding:10px 4px;text-align:center">${d.emoji}<br><b style="font-size:14px">${d.name}</b></button>`).join('');
+  $('diffTip').textContent=DIFFS[selDiff].desc;
   $('contBtn').classList.toggle('hidden',!(S&&!S.plant.dead));
 }
 function monthTip(){
@@ -786,12 +804,13 @@ document.addEventListener('click',ev=>{
   if(b.dataset.a) act(b.dataset.a,+b.dataset.v||0);
   else if(b.dataset.loc) act('loc',b.dataset.loc);
   else if(b.dataset.sp!==undefined&&b.closest('#speed')){ speedIdx=+b.dataset.sp; save(); renderUI(); }
+  else if(b.dataset.df!==undefined){ selDiff=+b.dataset.df; showStart(); }
   else if(b.dataset.sp&&b.closest('#spList')){ selSp=b.dataset.sp; document.querySelectorAll('#spList .sp').forEach(x=>x.classList.toggle('sel',x.dataset.sp===selSp)); }
 });
 $('go').onclick=()=>{
   if(S&&!S.plant.dead&&!confirm('지금 키우는 식물을 포기하고 새로 시작할까요?')) return;
-  if(S&&!S.plant.dead){ const P=S.plant,sp=SPECIES[P.sp]; hist.push({name:sp.name,emoji:sp.emoji,days:Math.floor(P.age/24),stage:sp.stages[P.stage][0],harvest:P.harvest,why:'중간에 그만뒀어요.'}); saveHist(); }
-  newGame(selSp,+$('monthSel').value); save(); showGame();
+  if(S&&!S.plant.dead){ const P=S.plant,sp=SPECIES[P.sp]; hist.push({diff:S.diff,name:sp.name,emoji:sp.emoji,days:Math.floor(P.age/24),stage:sp.stages[P.stage][0],harvest:P.harvest,why:'중간에 그만뒀어요.'}); saveHist(); }
+  newGame(selSp,+$('monthSel').value,selDiff); save(); showGame();
 };
 $('contBtn').onclick=()=>showGame();
 $('menuBtn').onclick=()=>{ save(); showStart(); };
