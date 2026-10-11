@@ -548,9 +548,6 @@ const Bg = (() => {
       const sx = W * 0.8, sy = H * 0.18;
       const gl = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(220, W * 0.4)); gl.addColorStop(0, 'rgba(255,236,160,0.6)'); gl.addColorStop(1, 'rgba(255,236,160,0)');
       c.fillStyle = gl; c.fillRect(0, 0, W, H);
-      c.save(); c.translate(sx, sy);
-      for (let i = 0; i < 12; i++){ c.rotate(Math.PI / 6); c.fillStyle = 'rgba(255,240,180,0.07)'; c.beginPath(); c.moveTo(0, 0); c.lineTo(-18, -Math.max(W, H)); c.lineTo(18, -Math.max(W, H)); c.fill(); }
-      c.restore();
       c.fillStyle = '#fff7cf'; c.beginPath(); c.arc(sx, sy, 34, 0, 6.283); c.fill();
     } else if (season === 'autumn'){
       const sx = W * 0.68, sy = H * 0.66;
