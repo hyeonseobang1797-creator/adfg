@@ -88,6 +88,13 @@
   button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .selhead{position:sticky;top:-10px;z-index:1;margin:-10px -10px 8px;padding:10px 10px 8px;background:var(--panel);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px;border-radius:12px 12px 0 0}
   #closeSel{min-height:0;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;border-radius:10px}
+  /* 메인 화면: 계절 배경 위에 제목과 PLAY 버튼만 */
+  body:not(.in-game) > *:not(#home):not(#bgSky):not(#bgScene):not(#bgFront):not(script):not(style){visibility:hidden}
+  #home{position:fixed;left:0;top:0;right:0;bottom:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;padding:16px;touch-action:none}
+  #home .logo{font-size:clamp(34px,11vw,58px);font-weight:800;text-align:center;text-shadow:0 4px 26px rgba(0,0,0,.6);text-wrap:balance}
+  #playBtn{font-size:22px;font-weight:800;letter-spacing:.14em;padding:16px 58px;min-height:0;border-radius:999px;color:#fff;border:1px solid #b3c7ff;background:linear-gradient(180deg,#7ea4ff,#4a6fe8);box-shadow:0 8px 28px rgba(60,100,255,.5),inset 0 2px 0 rgba(255,255,255,.35);animation:playPulse 2.2s ease-in-out infinite}
+  @keyframes playPulse{50%{transform:scale(1.05)}}
+  @media (prefers-reduced-motion:reduce){#playBtn{animation:none}}
   #modes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
     h1,.sub,.note{text-shadow:0 1px 4px rgba(0,0,0,.6)}
   .sub,.note{color:#e3e9f7}
@@ -102,6 +109,10 @@
 </style>
 </head>
 <body>
+<div id="home">
+  <div class="logo">점 잇기 퍼즐</div>
+  <button type="button" id="playBtn">PLAY</button>
+</div>
 <div class="head"><h1>점 잇기 퍼즐</h1><button type="button" id="openSettings" aria-label="설정" title="설정"><svg viewBox="-12 -12 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M-3.01 -7.09 L-2.25 -10.15 L2.25 -10.15 L3.01 -7.09 L4.63 -6.15 L7.67 -7.03 L9.92 -3.13 L7.64 -0.94 L7.64 0.94 L9.92 3.13 L7.67 7.03 L4.63 6.15 L3.01 7.09 L2.25 10.15 L-2.25 10.15 L-3.01 7.09 L-4.63 6.15 L-7.67 7.03 L-9.92 3.13 L-7.64 0.94 L-7.64 -0.94 L-9.92 -3.13 L-7.67 -7.03 L-4.63 -6.15 Z"/><circle r="3.3"/></svg></button></div>
 <p class="sub">같은 색 점끼리 선으로 연결하고, 판의 모든 칸을 채우세요. 선은 서로 겹칠 수 없어요.</p>
 <div id="settings" hidden>
@@ -1164,6 +1175,7 @@ if (typeof document !== 'undefined') (function(){
   renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
   buildSelect(); load(unlocked);
   initSettings();
+  $('playBtn').onclick = () => { document.body.classList.add('in-game'); $('home').hidden = true; fit(); };
 })();
 </script>
 </body>

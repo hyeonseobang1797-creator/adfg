@@ -379,4 +379,5 @@ if (typeof document !== 'undefined') (function(){
   renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
   buildSelect(); load(unlocked);
   initSettings();
+  $('playBtn').onclick = () => { document.body.classList.add('in-game'); $('home').hidden = true; fit(); };
 })();
