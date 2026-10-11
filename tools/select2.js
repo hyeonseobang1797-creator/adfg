@@ -27,8 +27,8 @@ const bossIdx = [], normIdx = [];
 for (let i = 0; i < C.TOTAL; i++) (C.stageParams(i).kind === 1 || C.stageParams(i).kind === 2 ? bossIdx : normIdx).push(i);
 const out = [];
 // 어려움/하드 스테이지는 같은 지점의 일반 스테이지보다 한 단계 더 깊은 퍼즐
-bossIdx.forEach(idx => out.push({ idx, p: nearest(Math.min(7.95, 1.0 + 7.5 * Math.pow(idx / (C.TOTAL - 1), 0.55) + 0.9)) }));
-normIdx.forEach((idx, j) => out.push({ idx, p: nearest(1.0 + 7.5 * Math.pow(j / (normIdx.length - 1), 0.55)) }));
+bossIdx.forEach(idx => out.push({ idx, p: nearest(Math.min(7.95, 4.0 + 4.0 * Math.pow(idx / (C.TOTAL - 1), 0.35) + 0.8)) }));
+normIdx.forEach((idx, j) => out.push({ idx, p: nearest(4.0 + 4.0 * Math.pow(j / (normIdx.length - 1), 0.35)) }));
 out.sort((a, b) => a.idx - b.idx);
 fs.writeFileSync(__dirname + '/final.jsonl', out.map(o => JSON.stringify({ idx: o.idx, n: o.p.n, k: o.p.k, level: o.p.level, effort: o.p.effort, enc: o.p.enc })).join('\n') + '\n');
 const sz = {}, lv = {};

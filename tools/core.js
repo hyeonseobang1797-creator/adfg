@@ -7,7 +7,7 @@ function stageParams(i){
   const d = i / (TOTAL - 1), no = i + 1;
   // 1~60번은 쉬움: 4×4, 5×5, 6×6 중 무작위. 이후는 갈수록 어려워진다.
   // 10스테이지마다 어려움, 300스테이지부터는 어려움과 하드가 번갈아 나온다.
-  let kind = no <= 60 ? 3 : 0;
+  let kind = 0;
   if (no % 10 === 0) kind = no >= 300 && (no / 10) % 2 === 0 ? 2 : 1;
   const base = no <= 60 ? 4 + Math.floor(mulberry32(no * 31 + 5)() * 3) : 6 + Math.min(4, Math.floor((no - 61) / 440 * 5));
   return {
