@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2f5d3a">
+<title>나의 작은 화분</title>
+<style>
+  :root{--bg:#f3f1e8;--panel:#fffdf6;--fg:#27302a;--muted:#78816f;--line:#e0dcc8;--accent:#3f8f4f;--accent2:#2f6d3c;--warn:#d98324;--bad:#c4473a;--ok:#3f8f4f;color-scheme:light}
+  @media (prefers-color-scheme:dark){:root{--bg:#171b17;--panel:#212721;--fg:#e6ece3;--muted:#98a393;--line:#323a31;--accent:#5fb96f;--accent2:#7ad08a;--warn:#e3963a;--bad:#e86a5c;--ok:#5fb96f;color-scheme:dark}}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.45;padding:0 16px max(24px,env(safe-area-inset-bottom))}
+  #app{max-width:460px;margin:0 auto}
+  .hidden{display:none!important}
+  h1{font-size:22px;margin:22px 0 4px}
+  h2{font-size:15px;margin:18px 0 8px}
+  p.sub{margin:0 0 14px;color:var(--muted);font-size:14px}
+  button{font:inherit;color:inherit;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:9px 10px;cursor:pointer;touch-action:manipulation}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.4;cursor:default}
+  button.primary{background:var(--accent);border-color:var(--accent2);color:#fff;font-weight:600}
+  select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
+  /* start screen */
+  .sp{display:block;width:100%;text-align:left;margin-bottom:8px;padding:11px 12px}
+  .sp.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+  .sp b{font-size:16px}
+  .sp .tag{float:right;font-size:12px;color:var(--muted)}
+  .sp small{display:block;color:var(--muted);margin-top:3px;font-size:12.5px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row>*{flex:1}
+  /* game */
+  header{display:flex;justify-content:space-between;align-items:center;padding:12px 0 8px;gap:8px}
+  header .t{font-weight:700;font-size:16px}
+  header .s{font-size:13px;color:var(--muted);text-align:right}
+  .stage{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#000}
+  canvas{display:block;width:100%;height:auto;aspect-ratio:360/440}
+  #banner{position:absolute;left:8px;right:8px;top:8px;background:rgba(0,0,0,.55);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;opacity:0;transition:opacity .4s;pointer-events:none}
+  #banner.on{opacity:1}
+  #obs{margin:10px 0;font-size:14px}
+  #obs div{margin:2px 0}
+  .m{display:grid;grid-template-columns:62px 1fr 54px;gap:6px;align-items:center;margin:5px 0;font-size:13px}
+  .m .bar{position:relative;height:10px;border-radius:6px;background:var(--line);overflow:hidden}
+  .m .band{position:absolute;top:0;bottom:0;background:rgba(63,143,79,.28)}
+  .m .fill{position:absolute;top:0;bottom:0;left:0;background:var(--accent);border-radius:6px;transition:width .3s}
+  .m .v{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+  .speed{display:flex;gap:6px;margin:12px 0 6px}
+  .speed button{flex:1;padding:8px 0}
+  .speed button.on{background:var(--accent);color:#fff;border-color:var(--accent2)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:8px 0}
+  .grid button{padding:10px 4px;font-size:13.5px;line-height:1.25}
+  .grid button small{display:block;color:var(--muted);font-size:11px}
+  #log{margin-top:12px;font-size:13px;max-height:230px;overflow:auto}
+  #log div{padding:5px 2px;border-bottom:1px dashed var(--line)}
+  #log .good{color:var(--ok)} #log .warn{color:var(--warn)} #log .bad{color:var(--bad)}
+  #log time{color:var(--muted);margin-right:6px;font-size:11.5px}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:9}
+  #modal .card{max-width:400px;width:100%;max-height:85vh;overflow:auto}
+  #modal h3{margin:0 0 6px}
+  .hist{font-size:13px;margin:4px 0;padding:6px 0;border-bottom:1px dashed var(--line)}
+  .tips{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <section id="start">
+    <h1>🪴 나의 작은 화분</h1>
+    <p class="sub">실제 식물처럼 물·빛·온도·영양을 살피며 씨앗부터 키워 보세요. 시간이 흐르면 계절과 날씨도 바뀌어요.</p>
+    <h2>1. 어떤 식물을 키울까요?</h2>
+    <div id="spList"></div>
+    <h2>2. 언제 심을까요?</h2>
+    <div class="row">
+      <select id="monthSel"></select>
+    </div>
+    <p class="tips" id="monthTip"></p>
+    <button class="primary" id="go" style="width:100%;margin-top:12px;padding:13px">🌰 씨앗 심기</button>
+    <button id="contBtn" class="hidden" style="width:100%;margin-top:8px">이어서 키우기</button>
+    <h2>지난 기록</h2>
+    <div id="histList" class="tips">아직 없어요.</div>
+  </section>
+
+  <section id="game" class="hidden">
+    <header>
+      <div><div class="t" id="hTitle"></div><div class="s" style="text-align:left" id="hStage"></div></div>
+      <div class="s" id="hEnv"></div>
+    </header>
+    <div class="stage"><canvas id="cv"></canvas><div id="banner"></div></div>
+    <div id="obs"></div>
+    <div id="meters"></div>
+    <div class="speed" id="speed"></div>
+    <div class="grid">
+      <button data-a="water" data-v="100">💧 조금<small>100ml</small></button>
+      <button data-a="water" data-v="250">💧 적당히<small>250ml</small></button>
+      <button data-a="water" data-v="500">💧 듬뿍<small>500ml</small></button>
+      <button data-a="feed">🧪 영양제<small>액체 비료</small></button>
+      <button data-a="trim" id="trimBtn">✂️ 손질</button>
+      <button data-a="harvest" id="harvBtn">🧺 수확</button>
+      <button data-a="pest">🧼 해충 퇴치<small>비누물 분무</small></button>
+      <button data-a="root">🔍 뿌리 확인<small>살짝 뽑아보기</small></button>
+      <button data-a="repot" id="repotBtn">🪴 분갈이</button>
+    </div>
+    <div class="row" id="locRow"></div>
+    <div id="log"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="menuBtn">🌱 새 식물 / 기록</button>
+    </div>
+    <p class="tips">자리를 비우면 최대 이틀치 시간까지 흘러요. 화분은 자동 저장돼요.</p>
+  </section>
+</div>
+<div id="modal" class="hidden"><div class="card" id="modalBody"></div></div>
+
+<script>
+'use strict';
+/* ============================== data ============================== */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const lerp = (a,b,t) => a+(b-a)*t;
+const SAVE_KEY = 'smallpot_v1', HIST_KEY = 'smallpot_hist_v1';
+const MONTH_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const MONTH_START = MONTH_DAYS.reduce((a,d,i)=>(a.push(i?a[i-1]+MONTH_DAYS[i-1]:0),a),[]);
+const SPEEDS = [{l:'⏸',h:0},{l:'1×',h:0.5},{l:'6×',h:3},{l:'24×',h:12},{l:'96×',h:48}];
+
+// water/light/temp ranges are the "comfortable" bands; stages use growing-degree-days (GDD)
+const SPECIES = {
+  basil:{name:'바질',emoji:'🌿',kind:'stem',diff:'쉬움',
+    desc:'빨리 자라는 허브. 따뜻하고 밝은 곳을 좋아하고, 순지르기를 해 줄수록 풍성해져요.',
+    tip:'밝은 창가나 식물등이 좋아요. 흙이 마르기 전에 물을 주고, 꽃대가 올라오면 잘라 주세요. 추위에 약해요.',
+    water:[40,75],fc:85,light:[.55,1],burn:0,temp:[18,30],tmin:10,tmax:36,tbase:10,germT:15,
+    rgr:.017,mmax:40,hpx:190,nUse:3,thirst:1,rotK:1,feed:30,
+    stages:[['씨앗',0],['발아',30],['유묘',80],['성장기',220],['개화기',600]],life:1100,
+    l0:2,lk:7,lmax:44,ls:28,col:[84,158,60]},
+  tomato:{name:'방울토마토',emoji:'🍅',kind:'stem',diff:'보통',fruit:true,
+    desc:'햇빛과 비료를 아주 많이 먹는 열매채소. 꽃이 피고 열매가 빨갛게 익기까지 오래 걸려요.',
+    tip:'하루 종일 강한 햇빛(베란다)이나 식물등이 필요해요. 물을 자주 주고 비료도 꾸준히. 곁순을 따 주면 열매가 잘 열려요.',
+    water:[50,78],fc:85,light:[.7,1],burn:0,temp:[20,28],tmin:8,tmax:35,tbase:10,germT:15,
+    rgr:.014,mmax:150,hpx:250,nUse:5,thirst:1.4,rotK:1,feed:30,
+    stages:[['씨앗',0],['발아',40],['유묘',110],['성장기',300],['개화기',650],['결실기',800]],life:2700,fruitFrom:5,maxFruit:12,
+    l0:2,lk:3.5,lmax:36,ls:40,col:[72,138,56]},
+  succ:{name:'에케베리아',emoji:'🪷',kind:'rosette',diff:'보통',
+    desc:'통통한 잎에 물을 저장하는 다육식물. 아주 천천히 자라고, 물을 너무 자주 주면 금방 썩어요.',
+    tip:'햇빛은 충분히, 물은 흙이 바싹 마른 뒤에 한 번. 겨울 추위(5℃ 이하)와 과습이 가장 큰 적이에요.',
+    water:[12,40],fc:55,light:[.5,1],burn:0,temp:[15,28],tmin:3,tmax:38,tbase:8,germT:15,
+    rgr:.006,mmax:30,hpx:120,nUse:2,thirst:.15,rotK:.4,feed:18,
+    stages:[['씨앗',0],['발아',70],['유묘',250],['성체',700],['개화기',2200]],life:null,
+    l0:3,lk:6,lmax:38,ls:46,col:[122,170,132]},
+  lily:{name:'스파티필럼',emoji:'🤍',kind:'rosette',diff:'쉬움',
+    desc:'그늘에서도 잘 크는 실내 식물. 목이 마르면 잎이 축 처지는 걸로 알려줘요. 직사광선은 싫어해요.',
+    tip:'밝은 그늘(실내 안쪽·창가에서 약간 떨어진 곳)이 좋아요. 흙을 촉촉하게 유지하고 강한 햇빛은 피하세요.',
+    water:[45,78],fc:85,light:[.15,.5],burn:.6,temp:[18,27],tmin:8,tmax:34,tbase:10,germT:17,
+    rgr:.014,mmax:60,hpx:170,nUse:2.5,thirst:1.1,rotK:1,feed:20,
+    stages:[['씨앗',0],['발아',90],['유묘',250],['성체',600],['개화기',1000]],life:null,
+    l0:1,lk:3.5,lmax:22,ls:78,col:[52,120,64]}
+};
+const POTS = [
+  {name:'소형 화분',cap:400,vol:1,mass:1,r:44,h:62},
+  {name:'중형 화분',cap:800,vol:1.7,mass:1.9,r:56,h:72},
+  {name:'대형 화분',cap:1500,vol:2.6,mass:3.4,r:70,h:84}
+];
+const LOCS = {
+  window:{name:'🪟 창가',L:.65},
+  inside:{name:'🛋️ 실내 안쪽',L:.2},
+  balcony:{name:'🌤️ 베란다',L:1},
+  lamp:{name:'💡 식물등',L:.75}
+};
+const MONTH_TIPS = {
+  spring:'봄(3~5월)은 따뜻해지는 시기라 처음 키우기에 가장 좋아요.',
+  summer:'여름은 성장이 빠르지만 흙이 빨리 마르고 한낮 더위에 주의해야 해요.',
+  autumn:'가을엔 점점 추워지고 해가 짧아져요. 베란다는 금세 위험해질 수 있어요.',
+  winter:'겨울은 가장 어려워요. 베란다는 얼어 죽을 수 있으니 실내나 식물등을 쓰세요.'
+};
+
+/* ============================== state ============================== */
+let S = null, hist = [];
+let speedIdx = 2, acc = 0, lastFrame = 0, lastUI = 0, tAnim = 0;
+let selSp = 'basil';
+
+function loadHist(){ try{ hist = JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch(e){ hist=[]; } }
+function saveHist(){ try{ localStorage.setItem(HIST_KEY,JSON.stringify(hist.slice(-30))); }catch(e){} }
+function save(){ if(!S) return; try{ S.lastReal=Date.now(); S.speedIdx=speedIdx; localStorage.setItem(SAVE_KEY,JSON.stringify(S)); }catch(e){} }
+
+function newPlant(sp){
+  return {sp,pot:0,M:70,N:45,stage:0,dev:0,m:0,hp:100,rot:0,seedRot:0,dryH:0,pest:0,pestType:'',
+    branch:0,suck:0,fruits:[],chl:0,burnV:0,leggy:0,droopV:0,harvest:0,cause:{},dead:false,age:0,flags:{}};
+}
+function newGame(sp,month){
+  S = {seed:Math.floor(Math.random()*1e6),m0:month,t:8,loc:'window',plant:newPlant(sp),log:[],cooldown:{},lastReal:Date.now()};
+  say('🌰 씨앗을 심고 물을 흠뻑 줬어요. 싹이 트길 기다려 봐요.','good');
+}
+
+/* ============================== environment ============================== */
+function hash(a,b){ const x=Math.sin(a*12.9898+b*78.233+S.seed*0.137)*43758.5453; return x-Math.floor(x); }
+const weatherCache = {};
+function weatherOf(day){
+  const key=S.seed+':'+day; if(weatherCache[key]) return weatherCache[key];
+  const r=hash(day,1); let kind,cloud;
+  if(r<.42){kind='clear';cloud=1;} else if(r<.72){kind='partly';cloud=.62;} else if(r<.88){kind='cloudy';cloud=.32;} else {kind='rain';cloud=.22;}
+  const w={kind,cloud,dn:(hash(day,2)-.5)*6,rainStart:kind==='rain'?4+Math.floor(hash(day,3)*12):0,rainDur:kind==='rain'?4+Math.floor(hash(day,4)*8):0};
+  weatherCache[key]=w; return w;
+}
+function envAt(t){
+  const day=Math.floor(t/24), hr=t%24;
+  const doy=(MONTH_START[S.m0]+day)%365;
+  const w=weatherOf(day);
+  const dayLen=12+2.6*Math.sin(2*Math.PI*(doy-80)/365);
+  const rise=12-dayLen/2, set=12+dayLen/2, hm=hr+.5;
+  let sun=0; if(hm>rise&&hm<set) sun=Math.sin(Math.PI*(hm-rise)/dayLen);
+  const season=.65+.35*clamp((dayLen-9.4)/5.2,0,1);
+  const raining=w.rainDur>0&&hr>=w.rainStart&&hr<w.rainStart+w.rainDur;
+  const cloud=raining?.2:w.cloud;
+  const mean=12-14*Math.cos(2*Math.PI*(doy-20)/365);
+  const Tout=mean+w.dn-(w.kind==='rain'?2:0)+(3+3*w.cloud)*Math.sin(2*Math.PI*(hr-9)/24);
+  return {day,hr,doy,dayLen,rise,set,sun,sunC:sun*season*cloud,cloud,raining,Tout,kind:w.kind};
+}
+function lightAt(loc,e){
+  switch(loc){
+    case 'window': return e.sunC*.65;
+    case 'inside': return e.sunC*.2;
+    case 'balcony': return e.sunC;
+    case 'lamp': return (e.hr>=6&&e.hr<20?.75:0)+e.sunC*.1;
+  }
+}
+function tempAt(loc,e){
+  const inside=18+.2*(e.Tout-10);
+  switch(loc){
+    case 'window': return inside+3*e.sunC-Math.max(0,(inside-e.Tout)*.1)*(e.sun>0?0:1);
+    case 'inside': return inside;
+    case 'lamp': return inside+1;
+    case 'balcony': return e.Tout+1.5*e.sunC;
+  }
+}
+function dateStr(t){
+  const day=Math.floor(t/24), doy=(MONTH_START[S.m0]+day)%365; let m=0;
+  while(m<11&&doy>=MONTH_START[m+1]) m++;
+  return `${m+1}월 ${doy-MONTH_START[m]+1}일`;
+}
+const pad2 = n => String(n).padStart(2,'0');
+function say(msg,type){
+  if(!S) return;
+  S.log.unshift({t:S.t,msg,type:type||''}); if(S.log.length>60) S.log.pop();
+  banner(msg);
+}
+function note(key,msg,type,cool){
+  const last=S.cooldown[key]; if(last!==undefined&&S.t-last<(cool||48)) return;
+  S.cooldown[key]=S.t; say(msg,type);
+}
+
+/* ============================== simulation ============================== */
+function tempF(sp,T){
+  const [a,b]=sp.temp;
+  if(T<=sp.tmin||T>=sp.tmax) return 0;
+  if(T<a) return (T-sp.tmin)/(a-sp.tmin);
+  if(T>b) return (sp.tmax-T)/(sp.tmax-b);
+  return 1;
+}
+function waterF(sp,M,wp){
+  const [lo,hi]=sp.water;
+  if(M<lo) return clamp((M-wp)/(lo-wp),0,1);
+  if(M>hi) return 1-Math.min(.6,(M-hi)/100*2);
+  return 1;
+}
+const nutF = N => N<5?.25:.25+.75*clamp(N/35,0,1);
+
+function step(){
+  const P=S.plant, sp=SPECIES[P.sp], pot=POTS[P.pot], e=envAt(S.t);
+  const L=lightAt(S.loc,e), T=tempAt(S.loc,e);
+  S.cur={L,T,e};
+  if(P.dead){ S.t++; return; }
+  P.age++;
+  const wp=sp.water[0]*.4;
+  let M=P.M;
+
+  // --- water balance ---
+  if(S.loc==='balcony'&&e.raining){ M+=3.5; P.N-=.1; if(P.pest>0) P.pest*=.97; }
+  const evap=.55*(.6+Math.max(T,0)/25)*(.4+.8*L)/pot.vol*clamp(.25+M/80,.25,1);
+  const transp=P.stage>=1?.06*sp.thirst*Math.pow(P.m,.6)*(.2+L)*(.6+Math.max(T,0)/25)/pot.vol*(M>wp?1:.2):0;
+  M-=evap+transp;
+  if(M>sp.fc){ const ex=(M-sp.fc)*.15; M-=ex; P.N-=ex*.12; }
+  P.M=M=clamp(M,0,100);
+  P.N=clamp(P.N,0,100);
+
+  // --- root rot (too wet for too long) ---
+  const wh=sp.water[1];
+  if(M>wh+8) P.rot=Math.min(100,P.rot+(.5+(M-wh-8)*.05)*sp.rotK);
+  else if(M<wh) P.rot=Math.max(0,P.rot-.25);
+
+  const gdd=Math.max(0,T-sp.tbase)/24;
+  const wF=waterF(sp,M,wp), tF=tempF(sp,T), nF=nutF(P.N), rootEff=1-P.rot/130;
+  const hpF=Math.sqrt(clamp(P.hp,0,100)/100);
+  let dmg=0;
+  let bd=0;
+  const add=(k,v)=>{ dmg+=v; P.cause[k]=(P.cause[k]||0)+v; if(k==='burn'||k==='salt'||k==='heat'||k==='cold') bd+=v; };
+
+  if(P.stage===0){
+    // seed: waits in the soil until it is moist and warm enough
+    if(M>=35&&M<=92&&T>=sp.germT) P.dev+=gdd;
+    if(M>90) P.seedRot++; else P.seedRot=Math.max(0,P.seedRot-1);
+    if(P.seedRot>96) return die('rot','씨앗이 물에 잠겨 썩어 버렸어요.');
+    if(P.age>24*50) return die('seed','오래 기다렸지만 씨앗이 싹트지 못했어요.');
+    if(M<20&&P.dev>0) P.dev=Math.max(0,P.dev-.1);
+  } else {
+    P.dev+=gdd*(.3+.7*wF)*hpF;
+    // --- growth ---
+    if(L>0){
+      const lF=clamp(L/sp.light[0],0,1);
+      const env=lF*tF*wF*nF*rootEff*hpF;
+      const mmax=sp.mmax*pot.mass;
+      const sg=P.stage>=sp.stages.length-1&&sp.life?.6:1;
+      const dm=sp.rgr*(P.m+.02)*env*(1-P.m/mmax)*sg*(P.stage>=(sp.fruitFrom||99)?.5:1);
+      P.m+=Math.max(0,dm); P.N-=dm*sp.nUse;
+    }
+    P.m-=P.m*.0004*(T>25?1.5:1); if(P.m<.01) P.m=.01;
+    if(P.m>.7*sp.mmax*pot.mass) note('rootbound','🪴 뿌리가 화분을 꽉 채운 것 같아요. 더 큰 화분으로 옮길 때예요.','warn',200);
+
+    // --- stress & damage ---
+    if(M<wp){ P.dryH++; add('drought',.1+Math.min(.7,P.dryH*.004)); } else P.dryH=Math.max(0,P.dryH-2);
+    if(P.rot>40) add('rot',(P.rot-40)/100*.4);
+    if(T<sp.tmin) add('cold',.2*(sp.tmin-T));
+    else if(T>sp.tmax) add('heat',.2*(T-sp.tmax));
+    if(sp.burn&&L>sp.burn) add('burn',(L-sp.burn)*3);
+    if(P.N>85) add('salt',(P.N-85)/15*.3);
+    if(P.pest>0) add("pest",P.pest*.004);
+    const dim=L>0&&(S.loc==='lamp'||e.sun>.5);
+    if(dim&&L<sp.light[0]*.4&&P.stage>=2) add('dark',.03);
+    if(sp.life&&P.dev>sp.life) add('old',.12);
+
+    // --- visuals ---
+    const dryTarget=M<sp.water[0]*.9?clamp(1-(M-wp)/(sp.water[0]*.9-wp),0,1):0;
+    const heatTarget=T>sp.temp[1]+5?clamp((T-sp.temp[1]-5)/8,0,.5):0;
+    const rotTarget=P.rot>30?(P.rot-30)/100:0;
+    P.droopV+=(Math.max(dryTarget,heatTarget,rotTarget)-P.droopV)*.2;
+    const chlT=Math.max(P.N<20?(20-P.N)/20*.8:0,P.rot>30?(P.rot-30)/70:0);
+    P.chl+=(chlT-P.chl)*.02;
+    P.burnV=clamp(P.burnV+bd*.02-.0004,0,1);
+    if(dim&&L<sp.light[0]*.7&&P.stage>=2) P.leggy=Math.min(1,P.leggy+.003); else P.leggy=Math.max(0,P.leggy-.0008);
+
+    // --- pests ---
+    if(P.stage>=2){
+      if(P.pest<=0){
+        if(Math.random()<.0006*(1+(M>78?1:0)+(T>24&&M<sp.water[0]+10?1:0))){
+          P.pest=3; P.pestType=M>78?'gnat':(T>24&&M<sp.water[0]+10)?'mite':'aphid';
+        }
+      } else P.pest=Math.min(100,P.pest*1.012+.05);
+      if(P.pest>=8) note('pest','🐛 잎에 작은 벌레가 보여요! 비누물을 뿌려 주세요.','warn',60);
+    }
+
+    // --- fruit ---
+    if(sp.fruit&&P.stage>=sp.fruitFrom){
+      const suckF=1-P.suck/20;
+      if(e.hr===12&&P.fruits.length<Math.min(sp.maxFruit,Math.floor(P.m/8))&&T>13&&T<32&&wF>.5&&nF>.5&&Math.random()<.7*suckF) P.fruits.push(0);
+      P.fruits=P.fruits.map(r=>Math.min(100,r+gdd*100/330*suckF));
+    }
+    if(P.stage>=3) P.suck=Math.min(12,P.suck+.04);
+  }
+  // --- stage change ---
+  { let ns=0; for(let i=0;i<sp.stages.length;i++) if(P.dev>=sp.stages[i][1]) ns=i;
+    if(ns>P.stage){ P.stage=ns; stageMsg(P,sp); } }
+
+  if(dmg<.001) { if(P.hp<100) P.hp=Math.min(100,P.hp+.12); } else P.hp-=dmg;
+  if(P.stage>=1&&P.m<.02) P.m=.02;
+  alerts(P,sp,e,L,T,wp);
+  if(P.hp<=0){
+    const c=Object.entries(P.cause).sort((a,b)=>b[1]-a[1])[0];
+    die(c?c[0]:'old',null);
+  }
+  S.t++;
+}
+
+function stageMsg(P,sp){
+  const nm=sp.stages[P.stage][0];
+  if(P.stage===1){ P.m=.02; say(`🌱 싹이 텄어요! 흙을 뚫고 떡잎이 올라왔어요.`,'good'); }
+  else if(sp.fruit&&P.stage===sp.fruitFrom) say('🍅 꽃이 지고 작은 열매가 맺히기 시작해요.','good');
+  else if(nm==='개화기') say(sp.name==='바질'?'🌸 꽃대가 올라와요. 잎이 쓰고 질겨지기 전에 꽃대를 잘라 주세요.':'🌸 꽃이 피기 시작했어요!','good');
+  else say(`✨ ${nm}에 접어들었어요.`,'good');
+}
+function alerts(P,sp,e,L,T,wp){
+  if(P.stage<1) return;
+  if(P.droopV>.55&&P.M<sp.water[0]) note('wilt','🥀 잎이 축 처졌어요. 목이 마른가 봐요.','warn',30);
+  if(P.M<wp) note('dry','🏜️ 흙이 바싹 말랐어요! 얼른 물을 주세요.','bad',24);
+  if(P.rot>35) note('rot','🤢 흙이 계속 축축해서 뿌리가 썩기 시작한 것 같아요. 물주기를 멈추고 흙을 말려 주세요.','bad',72);
+  if(T<sp.tmin+2) note('cold','🥶 너무 추워요! 따뜻한 곳으로 옮겨 주세요.','bad',24);
+  if(T>sp.tmax-3) note('hot','🥵 너무 더워요. 시원한 곳으로 옮겨 주세요.','bad',24);
+  if(sp.burn&&L>sp.burn) note('burn','☀️ 햇빛이 너무 강해 잎이 타고 있어요. 그늘로 옮겨 주세요.','bad',36);
+  if(P.N>85) note('salt','🧂 비료가 너무 많아요. 물을 듬뿍 줘서 씻어 내세요.','bad',48);
+  if(P.N<12&&P.stage>=2) note('lowN','🍂 아래 잎이 노랗게 변해요. 영양이 부족한 것 같아요.','warn',96);
+  if(P.leggy>.5) note('leggy','🌾 빛이 부족해서 웃자라고 있어요. 더 밝은 곳이 필요해요.','warn',120);
+  if(P.hp<40) note('weak','💔 식물이 많이 약해졌어요. 원인을 찾아 주세요.','bad',48);
+}
+function die(cause,custom){
+  const P=S.plant; if(P.dead) return;
+  P.dead=true; P.deathCause=cause; P.deathT=S.t;
+  const sp=SPECIES[P.sp];
+  const why={drought:'오랫동안 물이 부족했어요.',rot:'과습으로 뿌리가 썩었어요.',cold:'추위를 견디지 못했어요.',heat:'더위를 견디지 못했어요.',
+    burn:'강한 햇빛에 잎이 타 버렸어요.',salt:'비료가 너무 많았어요.',pest:'벌레 피해가 너무 컸어요.',dark:'빛이 부족해 시들어 갔어요.',
+    old:'한 해를 살고 수명을 다했어요.',seed:'싹이 트지 못했어요.'}[cause]||'';
+  say(`🪦 ${custom||('식물이 시들었어요. '+why)}`,'bad');
+  hist.push({name:sp.name,emoji:sp.emoji,days:Math.floor(P.age/24),stage:sp.stages[P.stage][0],harvest:P.harvest,cause:cause,why,old:cause==='old'});
+  saveHist(); save();
+  setTimeout(showDead,400);
+}
+function hours(n){ for(let i=0;i<n;i++) step(); }
+
+/* ============================== actions ============================== */
+function act(a,v){
+  if(!S||S.plant.dead) return;
+  const P=S.plant, sp=SPECIES[P.sp], pot=POTS[P.pot];
+  if(a==='water'){
+    const add=v/pot.cap*100;
+    P.M=clamp(P.M+add,0,100);
+    say(P.M>=95?`💧 ${v}ml — 물이 화분 아래로 줄줄 흘러나와요.`:`💧 물을 ${v}ml 줬어요.`);
+    if(P.M>=95) P.N-=3;
+  } else if(a==='feed'){
+    if(P.stage===0) return say('🧪 아직 씨앗이라 비료가 필요 없어요.');
+    P.N=Math.min(100,P.N+sp.feed);
+    if(P.M<20){ P.hp-=3; P.N=Math.min(100,P.N+10); say('🧪 마른 흙에 비료를 줘서 뿌리가 상했어요. 비료는 촉촉할 때 주세요!','bad'); }
+    else say('🧪 액체 비료를 줬어요.');
+  } else if(a==='trim'){
+    if(P.stage<2) return say('✂️ 아직 너무 어려요. 조금 더 키워요.');
+    if(P.sp==='basil'){
+      if(P.stage>=4){ P.dev=sp.stages[3][1]+40; P.stage=3; P.m*=.92; say('✂️ 꽃대를 잘라 냈어요. 다시 잎이 부드럽게 자랄 거예요.','good'); }
+      else if(P.m<2) say('✂️ 순지르기는 잎이 조금 더 자란 뒤에 해요.');
+      else { P.branch=Math.min(4,P.branch+1); P.m*=.9; say('✂️ 순지르기! 곁가지가 늘어나 더 풍성해질 거예요.','good'); }
+    } else if(P.sp==='tomato'){ P.suck=0; P.m*=.98; say('✂️ 곁순을 따 줬어요. 영양이 열매로 모여요.','good'); }
+    else { P.burnV*=.3; P.chl*=.8; say('✂️ 시든 잎을 정리했어요. 깔끔해졌어요.'); }
+  } else if(a==='harvest'){
+    if(P.sp==='basil'){
+      if(P.stage<3||P.m<6) return say('🧺 수확하기엔 아직 잎이 적어요.');
+      const g=Math.round(P.m*.25*10)/10; P.m*=.85; P.harvest+=g; P.hp-=1;
+      say(P.stage>=4?`🧺 잎 ${g}g을 땄어요. (꽃이 펴서 맛이 좀 써요)`:`🧺 향긋한 잎 ${g}g 수확!`,'good');
+    } else if(P.sp==='tomato'){
+      const ripe=P.fruits.filter(r=>r>=100).length;
+      if(!ripe) return say('🧺 아직 빨갛게 익은 열매가 없어요.');
+      P.fruits=P.fruits.filter(r=>r<100); P.harvest+=ripe; say(`🍅 잘 익은 토마토 ${ripe}개 수확!`,'good');
+    } else say('🧺 이 식물은 수확하는 식물이 아니에요. 보고 즐겨요.');
+  } else if(a==='pest'){
+    if(P.pest<=0) return say('🧼 벌레는 보이지 않아요. (뿌려도 소용없어요)');
+    P.pest*=.3; if(P.pest<4) P.pest=0; P.hp-=1;
+    say(P.pest>0?'🧼 비누물을 뿌렸어요. 아직 몇 마리 남았을지도 몰라요.':'🧼 벌레를 깨끗이 없앴어요!','good');
+    if(P.pestType==='gnat') say('💡 날벌레는 흙이 계속 젖어 있을 때 생겨요. 겉흙을 말려 주세요.');
+  } else if(a==='root'){
+    P.hp-=.5;
+    const full=P.m>.7*sp.mmax*pot.mass;
+    const r=P.stage===0?'씨앗이 아직 흙 속에 있어요.':P.rot<10?'뿌리가 하얗고 튼튼해요.':P.rot<40?'뿌리 일부가 갈색으로 변했어요. 과습 주의!':'뿌리가 시커멓고 물러요. 심하게 썩었어요!';
+    say(`🔍 ${r}${full?' 뿌리가 화분 안을 꽉 채웠어요.':''}`,P.rot>=40?'bad':'');
+  } else if(a==='repot'){
+    if(P.pot>=POTS.length-1) return say('🪴 이미 가장 큰 화분이에요.');
+    P.pot++; P.rot*=.3; P.N=Math.min(100,P.N+25); P.hp-=4;
+    say(`🪴 ${POTS[P.pot].name}으로 분갈이했어요. 새 흙이라 영양이 늘었지만 잠시 몸살을 앓아요.`,'good');
+  } else if(a==='loc'){
+    const d=Math.abs(LOCS[v].L-LOCS[S.loc].L); S.loc=v;
+    say(`📍 ${LOCS[v].name}(으)로 옮겼어요.`);
+    if(d>.45){ P.hp-=3; say('😵 갑자기 빛 환경이 바뀌어 잠시 몸살이 났어요. 천천히 옮기는 게 좋아요.','warn'); }
+  }
+  save(); renderUI(true);
+}
+
+/* ============================== drawing ============================== */
+const cv=$('cv'), ctx=cv.getContext('2d'), W=360, H=440;
+function fitCanvas(){ const d=Math.min(window.devicePixelRatio||1,2); cv.width=W*d; cv.height=H*d; ctx.setTransform(d,0,0,d,0,0); }
+const mix=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const rnd=i=>{ const x=Math.sin(i*91.17+7.3)*43758.5453; return x-Math.floor(x); };
+
+function sky(e,cloud){
+  const d=clamp(e.sun*2.2,0,1);
+  let top=mix([8,16,44],[96,176,242],d), bot=mix([22,30,66],[190,225,250],d);
+  const g=(1-cloud)*.6; top=mix(top,[130,140,150],g*d+g*.2); bot=mix(bot,[170,178,186],g*d+g*.2);
+  return [top,bot,d];
+}
+function drawSky(x,y,w,h,e){
+  const [top,bot,d]=sky(e,e.cloud);
+  const gr=ctx.createLinearGradient(0,y,0,y+h); gr.addColorStop(0,rgb(top)); gr.addColorStop(1,rgb(bot));
+  ctx.fillStyle=gr; ctx.fillRect(x,y,w,h);
+  ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+  const hm=e.hr+.5;
+  if(e.sun>0){
+    const f=(hm-e.rise)/e.dayLen, sx=x+w*(.1+.8*f), sy=y+h*.55-Math.sin(Math.PI*f)*h*.42;
+    const gl=ctx.createRadialGradient(sx,sy,2,sx,sy,50); gl.addColorStop(0,'rgba(255,240,170,.9)'); gl.addColorStop(1,'rgba(255,240,170,0)');
+    ctx.fillStyle=gl; ctx.fillRect(sx-50,sy-50,100,100);
+    ctx.fillStyle='#fff3b0'; ctx.beginPath(); ctx.arc(sx,sy,15,0,7); ctx.fill();
+  } else {
+    const nl=24-e.dayLen, f=((hm-e.set+24)%24)/nl, mx=x+w*(.1+.8*f), my=y+h*.55-Math.sin(Math.PI*clamp(f,0,1))*h*.4;
+    ctx.fillStyle='#f4f1dc'; ctx.beginPath(); ctx.arc(mx,my,11,0,7); ctx.fill();
+    ctx.fillStyle=rgb(top); ctx.beginPath(); ctx.arc(mx+5,my-3,10,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; for(let i=0;i<14;i++){ ctx.globalAlpha=.4+.5*rnd(i); ctx.fillRect(x+rnd(i+30)*w,y+rnd(i+60)*h*.6,1.6,1.6); } ctx.globalAlpha=1;
+  }
+  const nc=e.cloud>=1?1:e.cloud>.5?3:5;
+  ctx.fillStyle=`rgba(255,255,255,${(.35+.5*d)*(e.cloud>=1?.7:1)})`;
+  if(e.cloud<.7) ctx.fillStyle=`rgba(${mix([90,95,110],[245,245,250],d)[0]|0},${mix([90,95,110],[245,245,250],d)[1]|0},${mix([90,95,110],[245,245,250],d)[2]|0},.85)`;
+  for(let i=0;i<nc;i++){
+    const cx=x+((i*97+tAnim*5)%(w+120))-60, cy=y+30+(i*41%80), r=18+(i*7%12);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.arc(cx+r,cy+4,r*.8,0,7); ctx.arc(cx-r,cy+5,r*.7,0,7); ctx.fill();
+  }
+  if(e.raining){
+    ctx.strokeStyle='rgba(180,205,240,.7)'; ctx.lineWidth=1.2; ctx.beginPath();
+    for(let i=0;i<40;i++){ const rx=x+rnd(i)*w, ry=y+((rnd(i+9)*h+tAnim*260)%h); ctx.moveTo(rx,ry); ctx.lineTo(rx-3,ry+12); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawScene(S,e,L,pot){
+  const floor=H-8;
+  if(S.loc==='window'){
+    ctx.fillStyle='#e6dcc6'; ctx.fillRect(0,0,W,H);
+    drawSky(36,28,288,300,e);
+    ctx.strokeStyle='#faf7ee'; ctx.lineWidth=9; ctx.strokeRect(36,28,288,300);
+    ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(180,28); ctx.lineTo(180,328); ctx.moveTo(36,178); ctx.lineTo(324,178); ctx.stroke();
+    ctx.fillStyle='#c9b48e'; ctx.fillRect(0,332,W,H-332);
+    ctx.fillStyle='#b39d74'; ctx.fillRect(0,332,W,5);
+    if(e.sunC>.15){ ctx.fillStyle=`rgba(255,240,170,${e.sunC*.22})`; ctx.beginPath(); ctx.moveTo(60,40); ctx.lineTo(160,40); ctx.lineTo(300,H); ctx.lineTo(150,H); ctx.fill(); }
+  } else if(S.loc==='balcony'){
+    drawSky(0,0,W,340,e);
+    ctx.fillStyle='rgba(60,70,60,.35)'; for(let i=0;i<6;i++){ const bx=i*64-10; ctx.fillRect(bx,250-rnd(i)*60,44,100); }
+    ctx.fillStyle='#8c8a82'; ctx.fillRect(0,floor-90,W,90);
+    ctx.fillStyle='#a8a69c'; ctx.fillRect(0,floor-4,W,12);
+    ctx.strokeStyle='#d8d6cc'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(0,300); ctx.lineTo(W,300); ctx.stroke(); ctx.lineWidth=2;
+    for(let i=0;i<=W;i+=24){ ctx.beginPath(); ctx.moveTo(i,300); ctx.lineTo(i,floor-90); ctx.stroke(); }
+  } else if(S.loc==='lamp'){
+    ctx.fillStyle='#2b2a35'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#3a3945'; ctx.fillRect(0,floor-4,W,H);
+    const on=L>.3;
+    ctx.fillStyle='#555'; ctx.fillRect(176,0,8,38); ctx.fillStyle=on?'#ffe9a0':'#777'; ctx.beginPath(); ctx.moveTo(120,60); ctx.lineTo(240,60); ctx.lineTo(210,36); ctx.lineTo(150,36); ctx.fill();
+    if(on){ const g=ctx.createLinearGradient(0,60,0,H); g.addColorStop(0,'rgba(255,230,160,.5)'); g.addColorStop(1,'rgba(255,230,160,.05)'); ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(130,62); ctx.lineTo(230,62); ctx.lineTo(340,H); ctx.lineTo(20,H); ctx.fill(); }
+  } else {
+    ctx.fillStyle='#d6c8ae'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#b9a98a'; ctx.fillRect(20,40,70,90); ctx.fillStyle='#8fb09a'; ctx.fillRect(26,46,58,78);
+    ctx.fillStyle='#8a6c48'; ctx.fillRect(0,floor-4,W,H);
+    ctx.fillStyle=`rgba(8,10,40,${.5*(1-clamp(L*5,0,1))})`; ctx.fillRect(0,0,W,H);
+  }
+  ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(W/2,floor-2,pot.r+14,7,0,0,7); ctx.fill();
+}
+function drawPot(P,pot,soilY){
+  const cx=W/2, r=pot.r, bot=soilY+pot.h, br=r*.68;
+  ctx.fillStyle='#b8693f'; ctx.beginPath(); ctx.moveTo(cx-r,soilY); ctx.lineTo(cx+r,soilY); ctx.lineTo(cx+br,bot); ctx.lineTo(cx-br,bot); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.12)'; ctx.beginPath(); ctx.moveTo(cx+r*.35,soilY); ctx.lineTo(cx+r,soilY); ctx.lineTo(cx+br,bot); ctx.lineTo(cx+br*.35,bot); ctx.fill();
+  ctx.fillStyle='#c97a4c'; ctx.beginPath(); ctx.roundRect(cx-r-5,soilY-8,2*r+10,16,5); ctx.fill();
+  const wet=clamp(P.M/100,0,1);
+  ctx.fillStyle=rgb(mix([150,110,75],[62,42,30],wet)); ctx.beginPath(); ctx.ellipse(cx,soilY-3,r-2,6,0,0,7); ctx.fill();
+}
+function leafShape(x,y,ang,len,wid){
+  const c=Math.cos(ang), s=Math.sin(ang), px=-s, py=c;
+  ctx.beginPath(); ctx.moveTo(x,y);
+  ctx.quadraticCurveTo(x+c*len*.5+px*wid,y+s*len*.5+py*wid,x+c*len,y+s*len);
+  ctx.quadraticCurveTo(x+c*len*.5-px*wid,y+s*len*.5-py*wid,x,y);
+  ctx.closePath();
+}
+let anchors=[], leafCol='#4a4', leafDark='#363';
+function leaf(x,y,ang,len,wid){
+  leafShape(x,y,ang,len,wid); ctx.fillStyle=leafCol; ctx.fill();
+  ctx.strokeStyle=leafDark; ctx.lineWidth=.8; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(ang)*len*.85,y+Math.sin(ang)*len*.85); ctx.globalAlpha=.4; ctx.stroke(); ctx.globalAlpha=1;
+  anchors.push([x+Math.cos(ang)*len*.6,y+Math.sin(ang)*len*.6]);
+}
+function curvedLeaf(x,y,ang,len,wid,droop){
+  const c1x=x+Math.cos(ang)*len*.6, c1y=y+Math.sin(ang)*len*.6;
+  const a2=ang+(Math.cos(ang)>=0?1:-1)*(.5+droop*1.3);
+  const tx=c1x+Math.cos(a2)*len*.5, ty=c1y+Math.sin(a2)*len*.5;
+  const N=10, L=[], R=[];
+  for(let i=0;i<=N;i++){
+    const t=i/N, u=1-t, bx=u*u*x+2*u*t*c1x+t*t*tx, by=u*u*y+2*u*t*c1y+t*t*ty;
+    const dx=2*u*(c1x-x)+2*t*(tx-c1x), dy=2*u*(c1y-y)+2*t*(ty-c1y), dl=Math.hypot(dx,dy)||1;
+    const w=wid*Math.pow(Math.sin(Math.PI*Math.pow(t,.7)),.8);
+    L.push([bx-dy/dl*w,by+dx/dl*w]); R.push([bx+dy/dl*w,by-dx/dl*w]);
+  }
+  ctx.beginPath(); ctx.moveTo(L[0][0],L[0][1]); L.forEach(p=>ctx.lineTo(p[0],p[1])); for(let i=N;i>=0;i--) ctx.lineTo(R[i][0],R[i][1]); ctx.closePath();
+  ctx.fillStyle=leafCol; ctx.fill(); ctx.strokeStyle=leafDark; ctx.lineWidth=.8; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.quadraticCurveTo(c1x,c1y,tx,ty); ctx.globalAlpha=.45; ctx.stroke(); ctx.globalAlpha=1;
+  anchors.push([c1x,c1y]);
+}
+function stemPoints(x0,y0,len,ang,bend,sway,n){
+  const pts=[]; let x=x0,y=y0,a=ang; const sgn=Math.cos(ang)>=0?1:-1;
+  for(let k=0;k<=n;k++){ pts.push([x,y,a]); a+=sgn*bend/n+sway*Math.sin(k*.5+tAnim)*.004; x+=Math.cos(a)*len/n; y+=Math.sin(a)*len/n; }
+  return pts;
+}
+
+function drawPlant(P,sp,pot,soilY){
+  const cx=W/2, frac=clamp(P.m/(sp.mmax*pot.mass),0,1), dead=P.dead;
+  const droop=dead?1:P.droopV;
+  let col=mix(sp.col,[206,196,70],clamp(P.chl,0,1)); col=mix(col,[122,82,42],clamp(P.burnV*1.4,0,.85));
+  if(dead) col=[112,96,70];
+  leafCol=rgb(col); leafDark=rgb(mix(col,[10,30,10],.45));
+  anchors=[];
+  if(P.stage===0) return;
+
+  if(P.stage===1&&P.m<.1||frac<.004&&sp.kind==='stem'){
+    // cotyledons
+    const s=P.stage===1?8+P.m*60:10;
+    ctx.strokeStyle=rgb(mix(col,[255,255,255],.2)); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(cx,soilY-3); ctx.lineTo(cx,soilY-3-s); ctx.stroke();
+    leaf(cx,soilY-3-s,-Math.PI/2-1.2+droop*1.2,s*1.2,s*.35); leaf(cx,soilY-3-s,-Math.PI/2+1.2-droop*1.2,s*1.2,s*.35);
+    return;
+  }
+  const lf=Math.min(sp.lmax,Math.floor(sp.l0+sp.lk*Math.sqrt(P.m)));
+  const sizeS=.35+.65*Math.pow(clamp(frac*4,0,1),.5);
+  const t0=soilY-3;
+
+  if(sp.kind==='stem'){
+    const hPx=Math.max(26,sp.hpx*Math.pow(frac,.45)*(1+.35*P.leggy));
+    const stems=P.sp==='basil'?1+P.branch:1;
+    const lean=(S.loc==='window'?.16:0);
+    const stemC=rgb(mix(P.sp==='tomato'?[96,140,66]:[90,140,70],[110,80,50],clamp(P.burnV+(dead?1:0),0,.8)));
+    for(let s=0;s<stems;s++){
+      let x0=cx,y0=t0,len=hPx,ang=-Math.PI/2+lean,bend=droop*1.1,nl=Math.ceil(lf/stems);
+      if(s>0){ const k=s-1; const side=k%2?1:-1; const t=.35+.12*k; const mp=0; x0=cx+side*3; y0=t0-hPx*t; len=hPx*(.55-.05*k); ang=-Math.PI/2+side*(.7+.1*k); bend=droop*1.2; nl=Math.ceil(lf/stems); }
+      const pts=stemPoints(x0,y0,len,ang,bend,s?0:(dead?0:1),14);
+      ctx.strokeStyle=stemC; ctx.lineWidth=s?2.2:Math.max(2.5,3+hPx/60); ctx.lineCap='round'; ctx.beginPath();
+      pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.stroke();
+      const pair=P.sp==='basil';
+      const nodes=Math.max(1,Math.min(12,pair?Math.ceil(nl/2):nl));
+      for(let i=0;i<nodes;i++){
+        const t=(i+.6)/(nodes+.3), p=pts[Math.min(14,Math.round(t*14))];
+        const sz=sp.ls*sizeS*(1.05-.5*t)*(s?.8:1);
+        if(pair){
+          for(const side of [-1,1]){
+            const a=p[2]+side*lerp(.85,1.9,droop);
+            leaf(p[0],p[1],a,sz,sz*.42);
+          }
+        } else {
+          const side=i%2?1:-1, a=p[2]+side*lerp(.9,1.9,droop);
+          ctx.strokeStyle=stemC; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(p[0],p[1]); const ex=p[0]+Math.cos(a)*sz*.55, ey=p[1]+Math.sin(a)*sz*.55; ctx.lineTo(ex,ey); ctx.stroke();
+          for(let j=0;j<5;j++){ const f=j<3?j/2:(j-3)/1, la=a+(j===0?0:(j%2?.55:-.55)*(1)); const bx=lerp(p[0],ex,.3+.2*(j>>1)), by=lerp(p[1],ey,.3+.2*(j>>1));
+            if(j===0) leaf(ex,ey,a,sz*.35,sz*.15); else leaf(bx,by,a+(j%2?.8:-.8),sz*.32,sz*.13); }
+        }
+      }
+      const top=pts[14];
+      if(!dead&&P.stage>=4&&P.sp==='basil'){
+        ctx.strokeStyle='#9c7bb8'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(top[0],top[1]); ctx.lineTo(top[0]+Math.cos(top[2])*22,top[1]+Math.sin(top[2])*22); ctx.stroke();
+        ctx.fillStyle='#f0ecf8'; for(let i=0;i<5;i++){ ctx.beginPath(); ctx.arc(top[0]+Math.cos(top[2])*(4+i*4)+(i%2?2:-2),top[1]+Math.sin(top[2])*(4+i*4),2.4,0,7); ctx.fill(); }
+      }
+      if(!dead&&P.sp==='tomato'&&P.stage===4){
+        ctx.fillStyle='#f7d640'; for(let i=0;i<4;i++){ const p=pts[8+i]; ctx.beginPath(); ctx.arc(p[0]+(i%2?9:-9),p[1]+4,3.4,0,7); ctx.fill(); }
+      }
+      if(P.sp==='tomato'&&s===0){
+        P.fruits.forEach((r,i)=>{
+          const p=pts[Math.min(14,5+i)], side=i%2?1:-1, fx=p[0]+side*(10+(i%3)*3), fy=p[1]+16+(i%3)*3+droop*10, rad=3+r/100*6.5;
+          ctx.strokeStyle='#4b7a38'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(fx,fy-rad); ctx.stroke();
+          ctx.fillStyle=rgb(mix([88,150,60],[220,50,40],clamp((r-35)/65,0,1))); ctx.beginPath(); ctx.arc(fx,fy,rad,0,7); ctx.fill();
+          ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(fx-rad*.3,fy-rad*.3,rad*.25,0,7); ctx.fill();
+        });
+      }
+    }
+  } else if(P.sp==='succ'){
+    const n=Math.max(4,lf);
+    for(let i=0;i<n;i++){
+      const t=n>1?i/(n-1):0, az=i*2.39996, el=lerp(.25,1.35,t);
+      const dx=Math.cos(az)*Math.cos(el), dy=-Math.sin(el)+.28*Math.sin(az)*Math.cos(el);
+      const len=sp.ls*sizeS*(.5+.55*(1-t*.75))*(1-droop*.15);
+      const w=len*.46*(0.7+0.3*clamp(1-Math.max(0,sp.water[0]-P.M)/sp.water[0],.3,1));
+      leaf(cx+Math.cos(az)*4,t0,Math.atan2(dy,dx)+droop*.35*(dx>0?1:-1),len,w);
+      ctx.fillStyle='rgba(235,120,150,.25)'; ctx.beginPath(); ctx.arc(cx+Math.cos(az)*4+dx*len*.92,t0+dy*len*.92,len*.09,0,7); ctx.fill();
+    }
+    if(!dead&&P.stage>=4){
+      const h=sp.hpx*.9, sx=cx+10; ctx.strokeStyle='#8fae7d'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(cx,t0-10); ctx.quadraticCurveTo(sx+20,t0-h*.6,sx+5,t0-h); ctx.stroke();
+      ctx.fillStyle='#f08a4b'; for(let i=0;i<5;i++){ ctx.beginPath(); ctx.arc(sx+5+Math.sin(i*1.7)*10,t0-h+i*7,4.2,0,7); ctx.fill(); }
+    }
+  } else { // lily
+    const n=Math.max(2,lf);
+    const order=[]; for(let i=0;i<n;i++) order.push({i,off:((i*.618)%1-.5)*2.2});
+    order.sort((a,b)=>Math.abs(b.off)-Math.abs(a.off));
+    for(const o of order){
+      const age=o.i/n, len=sp.ls*sizeS*(.65+.5*rnd(o.i+3))*(1-age*.2);
+      curvedLeaf(cx+o.off*4,t0,-Math.PI/2+o.off*.9,len,len*.2,clamp(droop*1.2+Math.abs(o.off)*.25,0,1.4));
+    }
+    if(!dead&&P.stage>=4&&P.hp>40){
+      const h=sp.ls*sizeS*1.15;
+      ctx.strokeStyle='#4e9a5c'; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(cx+4,t0); ctx.quadraticCurveTo(cx+10,t0-h*.6,cx+6,t0-h); ctx.stroke();
+      ctx.fillStyle='#fbfbf4'; ctx.strokeStyle='#d8d8c8'; ctx.lineWidth=.8; ctx.beginPath(); ctx.ellipse(cx+6,t0-h-12,9,16,.1,0,7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#f0de8c'; ctx.fillRect(cx+4.5,t0-h-14,3,14);
+    }
+  }
+  // pests
+  if(P.pest>=8&&anchors.length){
+    const n=Math.min(16,Math.floor(P.pest/6)), c=P.pestType==='aphid'?'#2d6b2d':P.pestType==='mite'?'#a33':'#111';
+    ctx.fillStyle=c;
+    for(let i=0;i<n;i++){
+      const a=anchors[(i*7+3)%anchors.length]; let px=a[0]+(rnd(i)-.5)*10, py=a[1]+(rnd(i+5)-.5)*10;
+      if(P.pestType==='gnat'){ px=cx+Math.sin(tAnim*2+i*2)*40; py=soilY-14-((i*13+tAnim*14)%50); }
+      ctx.beginPath(); ctx.arc(px,py,1.8,0,7); ctx.fill();
+    }
+    if(P.pestType==='mite'){ ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=.8; for(let i=0;i<4;i++){ const a=anchors[(i*5)%anchors.length]; ctx.beginPath(); ctx.moveTo(a[0]-6,a[1]); ctx.lineTo(a[0]+6,a[1]+4); ctx.stroke(); } }
+  }
+}
+function drawBubble(txt,x,y){
+  ctx.font='600 13px system-ui,sans-serif'; const w=ctx.measureText(txt).width+16;
+  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.roundRect(x-w/2,y,w,24,12); ctx.fill();
+  ctx.fillStyle='#333'; ctx.textAlign='center'; ctx.fillText(txt,x,y+17);
+}
+function draw(){
+  if(!S) return;
+  const P=S.plant, sp=SPECIES[P.sp], pot=POTS[P.pot];
+  const e=S.cur?S.cur.e:envAt(S.t), L=S.cur?S.cur.L:lightAt(S.loc,e);
+  ctx.clearRect(0,0,W,H);
+  const soilY=H-8-pot.h;
+  drawScene(S,e,L,pot);
+  drawPot(P,pot,soilY);
+  drawPlant(P,sp,pot,soilY);
+  if(P.stage===0&&!P.dead) drawBubble('🌰 땅속에서 싹 틔우는 중…',W/2,soilY-60);
+  if(P.dead){ ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(0,0,W,H); }
+  // darkness overlay for night at window/balcony
+  if(S.loc==='window'||S.loc==='balcony'){ const n=1-clamp(e.sun*2.2,0,1); ctx.fillStyle=`rgba(8,12,40,${.22*n})`; ctx.fillRect(0,0,W,H); }
+}
+
+/* ============================== UI ============================== */
+let bannerTimer=0;
+function banner(msg){ const b=$('banner'); b.textContent=msg; b.classList.add('on'); clearTimeout(bannerTimer); bannerTimer=setTimeout(()=>b.classList.remove('on'),3200); }
+const WX = {clear:['☀️','맑음'],partly:['🌤️','구름 조금'],cloudy:['☁️','흐림'],rain:['🌧️','비']};
+function meterHTML(id,label){ return `<div class="m"><span>${label}</span><div class="bar"><div class="band" id="${id}b"></div><div class="fill" id="${id}f"></div></div><span class="v" id="${id}v"></span></div>`; }
+function buildStatic(){
+  $('meters').innerHTML=meterHTML('mw','💧 수분')+meterHTML('mn','🧪 영양')+meterHTML('ml','☀️ 빛')+meterHTML('mt','🌡️ 온도')+meterHTML('mh','❤️ 건강');
+  $('speed').innerHTML=SPEEDS.map((s,i)=>`<button data-sp="${i}">${s.l}</button>`).join('');
+  $('locRow').innerHTML=Object.entries(LOCS).map(([k,v])=>`<button data-loc="${k}" style="padding:9px 4px;font-size:13px">${v.name}</button>`).join('');
+}
+function setBar(id,val,max,band,txt){
+  $(id+'f').style.width=clamp(val/max*100,0,100)+'%';
+  const b=$(id+'b'); if(band){ b.style.left=band[0]/max*100+'%'; b.style.width=(band[1]-band[0])/max*100+'%'; } else b.style.width='0';
+  $(id+'v').textContent=txt;
+}
+function observe(P,sp,L,T){
+  const o=[];
+  if(P.dead) return ['🪦 식물이 시들었어요.'];
+  if(P.stage===0){ o.push('🌰 아직 흙 속에서 싹 틔울 준비 중이에요. 흙을 촉촉하고 따뜻하게 유지해요.'); if(P.M<35) o.push('흙이 너무 말랐어요. 물이 필요해요.'); if(T<sp.germT) o.push('온도가 낮아 싹이 트지 않고 있어요.'); return o; }
+  if(P.droopV>.55) o.push('🥀 잎이 축 처져 있어요.'); else if(P.droopV>.25) o.push('잎이 살짝 힘이 없어 보여요.');
+  if(P.chl>.35) o.push('🍂 잎이 누렇게 변하고 있어요.');
+  if(P.burnV>.2) o.push('잎끝이 갈색으로 말랐어요.');
+  if(P.leggy>.35) o.push('🌾 줄기가 가늘고 길게 웃자랐어요.');
+  if(P.pest>=8) o.push('🐛 벌레가 보여요!');
+  if(P.rot>50) o.push('줄기 아랫부분이 물러 보여요.');
+  if(P.fruits&&P.fruits.some(r=>r>=100)) o.push('🍅 빨갛게 익은 열매가 있어요. 수확해 보세요!');
+  if(!o.length) o.push(P.hp>85?'😊 잎이 싱싱하고 건강해 보여요.':'🙂 그럭저럭 괜찮아 보여요.');
+  return o;
+}
+function renderUI(force){
+  if(!S) return;
+  const P=S.plant, sp=SPECIES[P.sp], pot=POTS[P.pot], e=S.cur?S.cur.e:envAt(S.t), L=S.cur?S.cur.L:0, T=S.cur?S.cur.T:20;
+  $('hTitle').textContent=`${sp.emoji} ${sp.name}`;
+  $('hStage').textContent=`${sp.stages[P.stage][0]} · ${Math.floor(P.age/24)+1}일째 · ${pot.name}${P.sp==='tomato'||P.sp==='basil'?` · 수확 ${P.harvest}${P.sp==='basil'?'g':'개'}`:''}`;
+  const wx=WX[e.raining?'rain':e.kind]||WX.clear;
+  $('hEnv').innerHTML=`${dateStr(S.t)} ${pad2(e.hr)}:00<br>${e.sun>0||e.hr<6||e.hr>=18?'':''}${wx[0]} ${wx[1]} · 바깥 ${Math.round(e.Tout)}℃`;
+  setBar('mw',P.M,100,sp.water,Math.round(P.M)+'%');
+  setBar('mn',P.N,100,[35,80],Math.round(P.N)+'%');
+  setBar('ml',L,1,[sp.light[0],sp.burn||1],Math.round(L*100)+'%');
+  setBar('mt',T+10,55,[sp.temp[0]+10,sp.temp[1]+10],Math.round(T)+'℃');
+  setBar('mh',P.hp,100,null,Math.round(Math.max(0,P.hp))+'%');
+  $('obs').innerHTML=observe(P,sp,L,T).map(x=>`<div>${x}</div>`).join('');
+  document.querySelectorAll('#speed button').forEach(b=>b.classList.toggle('on',+b.dataset.sp===speedIdx));
+  document.querySelectorAll('#locRow button').forEach(b=>{ b.style.borderColor=b.dataset.loc===S.loc?'var(--accent)':''; b.style.background=b.dataset.loc===S.loc?'rgba(63,143,79,.15)':''; });
+  const trim={basil:'✂️ 순지르기',tomato:'✂️ 곁순 따기'}[P.sp]||'✂️ 시든 잎 정리';
+  $('trimBtn').textContent=trim;
+  $('repotBtn').disabled=P.pot>=POTS.length-1;
+  $('harvBtn').disabled=!(P.sp==='basil'||P.sp==='tomato');
+  document.querySelectorAll('.grid button,#locRow button').forEach(b=>{ if(P.dead) b.disabled=true; });
+  if(force||!renderUI.lastLog||renderUI.lastLog!==S.log.length+':'+(S.log[0]?S.log[0].t:0)){
+    renderUI.lastLog=S.log.length+':'+(S.log[0]?S.log[0].t:0);
+    $('log').innerHTML=S.log.map(l=>`<div class="${l.type}"><time>${dateStr(l.t)} ${pad2(l.t%24)}시</time>${l.msg}</div>`).join('');
+  }
+}
+
+/* ============================== screens ============================== */
+function showStart(){
+  $('game').classList.add('hidden'); $('start').classList.remove('hidden');
+  $('spList').innerHTML=Object.entries(SPECIES).map(([k,s])=>`<button class="sp${k===selSp?' sel':''}" data-sp="${k}"><span class="tag">난이도 ${s.diff}</span><b>${s.emoji} ${s.name}</b><small>${s.desc}</small><small>💡 ${s.tip}</small></button>`).join('');
+  $('histList').innerHTML=hist.length?hist.slice().reverse().map(h=>`<div class="hist">${h.emoji} ${h.name} · ${h.days}일 · ${h.stage}${h.harvest?` · 수확 ${h.harvest}`:''}<br><span style="color:var(--muted)">${h.old?'🏅 ':'🪦 '}${h.why||'다음에 다시 도전!'}</span></div>`).join(''):'아직 없어요.';
+  $('contBtn').classList.toggle('hidden',!(S&&!S.plant.dead));
+}
+function monthTip(){
+  const m=+$('monthSel').value, k=m>=2&&m<=4?'spring':m>=5&&m<=7?'summer':m>=8&&m<=10?'autumn':'winter';
+  $('monthTip').textContent=MONTH_TIPS[k];
+}
+function showGame(){
+  $('start').classList.add('hidden'); $('game').classList.remove('hidden');
+  $('modal').classList.add('hidden');
+  fitCanvas(); renderUI(true);
+}
+function showDead(){
+  const P=S.plant, sp=SPECIES[P.sp], h=hist[hist.length-1]||{};
+  const adv={drought:'흙이 마르기 전에 물을 주세요. 잎이 처지면 목마르다는 신호예요.',rot:'물은 흙이 말랐을 때 주고, 뿌리 확인으로 상태를 살피세요.',cold:'계절에 맞는 장소를 고르세요. 겨울 베란다는 위험해요.',heat:'한여름 한낮엔 시원한 곳으로 옮겨 주세요.',burn:'그늘을 좋아하는 식물은 직사광선을 피해 주세요.',salt:'비료는 조금씩, 촉촉한 흙에만 주세요.',pest:'매일 잎 뒷면을 살피고 벌레를 일찍 잡으세요.',dark:'빛이 부족하면 서서히 약해져요. 더 밝은 곳이나 식물등을 써 보세요.',seed:'씨앗은 촉촉하고 따뜻해야 싹이 터요.',old:'정말 잘 키웠어요! 한 해를 알차게 살았답니다.'}[P.deathCause]||'';
+  $('modalBody').innerHTML=`<h3>${P.deathCause==='old'?'🏅 한 해를 마쳤어요':'🪦 식물이 시들었어요'}</h3><p>${sp.emoji} ${sp.name} · ${Math.floor(P.age/24)}일 동안 키웠어요.<br>${h.why||''}</p><p class="tips">💡 ${adv}</p><button class="primary" style="width:100%;padding:12px" id="againBtn">🌱 새로 시작하기</button><button style="width:100%;margin-top:8px" id="closeBtn">닫기</button>`;
+  $('modal').classList.remove('hidden');
+  $('againBtn').onclick=()=>{ $('modal').classList.add('hidden'); showStart(); };
+  $('closeBtn').onclick=()=>$('modal').classList.add('hidden');
+}
+
+/* ============================== events ============================== */
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b) return;
+  if(b.dataset.a) act(b.dataset.a,+b.dataset.v||0);
+  else if(b.dataset.loc) act('loc',b.dataset.loc);
+  else if(b.dataset.sp!==undefined&&b.closest('#speed')){ speedIdx=+b.dataset.sp; save(); renderUI(); }
+  else if(b.dataset.sp&&b.closest('#spList')){ selSp=b.dataset.sp; document.querySelectorAll('#spList .sp').forEach(x=>x.classList.toggle('sel',x.dataset.sp===selSp)); }
+});
+$('go').onclick=()=>{
+  if(S&&!S.plant.dead&&!confirm('지금 키우는 식물을 포기하고 새로 시작할까요?')) return;
+  if(S&&!S.plant.dead){ const P=S.plant,sp=SPECIES[P.sp]; hist.push({name:sp.name,emoji:sp.emoji,days:Math.floor(P.age/24),stage:sp.stages[P.stage][0],harvest:P.harvest,why:'중간에 그만뒀어요.'}); saveHist(); }
+  newGame(selSp,+$('monthSel').value); save(); showGame();
+};
+$('contBtn').onclick=()=>showGame();
+$('menuBtn').onclick=()=>{ save(); showStart(); };
+$('monthSel').onchange=monthTip;
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) save(); else if(S&&!$('game').classList.contains('hidden')) catchUp(); });
+window.addEventListener('pagehide',save);
+
+function catchUp(){
+  if(!S||S.plant.dead||!SPEEDS[speedIdx].h) { if(S) S.lastReal=Date.now(); return; }
+  const el=(Date.now()-S.lastReal)/1000;
+  if(el>30){
+    const h=Math.min(48,Math.floor(el*.5));
+    if(h>0){ hours(h); say(`⏰ 자리를 비운 동안 ${h}시간이 흘렀어요.`); }
+  }
+  S.lastReal=Date.now();
+}
+
+/* ============================== main loop ============================== */
+function frame(now){
+  const dt=Math.min(.25,(now-lastFrame)/1000||0); lastFrame=now; tAnim+=dt;
+  if(S&&!$('game').classList.contains('hidden')&&!S.plant.dead){
+    const hps=SPEEDS[speedIdx].h;
+    if(hps>0){ acc+=dt*hps; let n=0; while(acc>=1&&n<60){ step(); acc-=1; n++; } if(acc>2) acc=0; }
+    S.lastReal=Date.now();
+  }
+  if(S&&!$('game').classList.contains('hidden')){
+    draw();
+    if(now-lastUI>200){ lastUI=now; renderUI(); }
+  }
+  requestAnimationFrame(frame);
+}
+setInterval(()=>{ if(S&&!$('game').classList.contains('hidden')) save(); },5000);
+
+/* ============================== init ============================== */
+function init(){
+  loadHist(); buildStatic(); fitCanvas();
+  $('monthSel').innerHTML=Array.from({length:12},(_,i)=>`<option value="${i}">${i+1}월</option>`).join('');
+  $('monthSel').value=new Date().getMonth(); monthTip();
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(raw){ S=JSON.parse(raw); speedIdx=S.speedIdx??2; S.cooldown=S.cooldown||{}; }
+  }catch(e){ S=null; }
+  if(S){ S.cur=null; hours(0); catchUp(); showGame(); } else showStart();
+  requestAnimationFrame(frame);
+}
+window.__game={get S(){return S;},step,hours,act,newGame,showGame,SPECIES,POTS,envAt,get speedIdx(){return speedIdx;},set speedIdx(v){speedIdx=v;}};
+init();
+</script>
+</body>
+</html>
