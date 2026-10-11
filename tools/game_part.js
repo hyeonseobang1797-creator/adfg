@@ -81,6 +81,9 @@ if (typeof document !== 'undefined') (function(){
     else Sfx.tick(p.length);
   }
 
+  let uiPending = false;
+  function uiSoon(){ if (uiPending) return; uiPending = true; requestAnimationFrame(() => { uiPending = false; updateUI(); }); }
+
   function move(cell){
     if (active === -1 || cell === -1) return;
     const p = paths[active];
@@ -99,7 +102,7 @@ if (typeof document !== 'undefined') (function(){
       if (nh === head && q.length === before) break;
       head = nh;
     }
-    draw(); updateUI();
+    draw(); uiSoon();
   }
 
   function end(){
@@ -142,6 +145,24 @@ if (typeof document !== 'undefined') (function(){
 
   // ---------------- 그리기: 윤기 있는 선, 반짝이는 점, 효과 ----------------
   const reduceFx = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cellsCv = document.createElement('canvas'); let cellsKey = '';
+  const beadCache = new Map();
+  // 구슬은 그림자와 빛 반사까지 한 번만 그려 두고 위치만 바꿔 찍는다
+  function beadSprite(col, rho, done, s){
+    const key = col + '|' + Math.round(rho) + '|' + (done ? 1 : 0);
+    let sp = beadCache.get(key);
+    if (sp) return sp;
+    const pad = Math.ceil(s * 0.3), size = Math.ceil(rho * 2 + pad * 2);
+    sp = document.createElement('canvas'); sp.width = sp.height = size;
+    const c = sp.getContext('2d'), x = size / 2, y = size / 2;
+    c.save(); c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = s * 0.14; c.shadowOffsetY = s * 0.05;
+    const g2 = c.createRadialGradient(x - rho * 0.32, y - rho * 0.38, rho * 0.08, x, y, rho);
+    g2.addColorStop(0, shade(col, 0.7)); g2.addColorStop(0.42, col); g2.addColorStop(1, shade(col, -0.35));
+    c.fillStyle = g2; c.beginPath(); c.arc(x, y, rho, 0, 6.283); c.fill(); c.restore();
+    c.strokeStyle = done ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.28)'; c.lineWidth = Math.max(1.2, s * 0.03); c.beginPath(); c.arc(x, y, rho, 0, 6.283); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.7)'; c.beginPath(); c.ellipse(x - rho * 0.34, y - rho * 0.42, rho * 0.2, rho * 0.11, -0.6, 0, 6.283); c.fill();
+    beadCache.set(key, sp); return sp;
+  }
   const fxs = [];   // 잠깐 보였다 사라지는 효과(물결, 불꽃, 색종이)
   const rgbOf = h => { const v = parseInt(h.slice(1), 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; };
   const shade = (h, k) => { const [r, g, b] = rgbOf(h), t = k < 0 ? 0 : 255, a = Math.abs(k); return 'rgb(' + Math.round(r + (t - r) * a) + ',' + Math.round(g + (t - g) * a) + ',' + Math.round(b + (t - b) * a) + ')'; };
@@ -165,35 +186,41 @@ if (typeof document !== 'undefined') (function(){
     const availH = window.innerHeight - top - msgH - 14;
     const availW = document.body.clientWidth - 32;
     const side = Math.max(170, Math.min(availW * 0.94, 500, availH));
+    boardCss = side;
     if (!(Math.abs(parseFloat(cv.style.width) - side) <= 0.5)){ cv.style.width = side + 'px'; cv.style.height = side + 'px'; }
   }
   window.addEventListener('resize', fit);
   window.addEventListener('orientationchange', () => setTimeout(fit, 120));
   function draw(){ dirty = true; }
-  let dirty = true, lastT = 0, lastFit = 0;
+  let dirty = true, lastT = 0, lastFit = 0, boardCss = 0;
   function loop(t){
     requestAnimationFrame(loop);
-    if (t - lastT < 30) return;   // 약 30프레임
+    if (t - lastT < ((active !== -1 || fxs.length) ? 16 : 66)) return;   // 그리는 중에는 부드럽게, 가만히 있을 때는 느리게
     const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
     if (!n) return;
-    if (t - lastFit > 300){ lastFit = t; fit(); }
+    if (t - lastFit > 1000){ lastFit = t; fit(); }
     render(performance.now(), dt);
   }
   function render(t, dt){
-    const rect = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const px = Math.max(200, Math.round(rect.width * dpr));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const px = Math.max(200, Math.round((boardCss || cv.clientWidth) * dpr));
     if (cv.width !== px){ cv.width = px; cv.height = px; }
     const W = cv.width, s = W / n, gap = Math.max(1.5, s * 0.035), R = s * 0.16, c = ctx;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, W);
-    const bg = c.createLinearGradient(0, 0, 0, W); bg.addColorStop(0, '#0d111a'); bg.addColorStop(1, '#090c13');
-    c.fillStyle = bg; c.fillRect(0, 0, W, W);
-    // 칸
-    for (let i = 0; i < n * n; i++){
-      const x = (i % n) * s + gap, y = Math.floor(i / n) * s + gap;
-      rr(c, x, y, s - gap * 2, s - gap * 2, R);
-      c.fillStyle = '#3a4255'; c.fill();
-      c.strokeStyle = 'rgba(255,255,255,0.06)'; c.lineWidth = 1; c.stroke();
+    const ck = W + ':' + n;
+    if (cellsKey !== ck){
+      cellsKey = ck; cellsCv.width = cellsCv.height = W;
+      const cc = cellsCv.getContext('2d');
+      const bg = cc.createLinearGradient(0, 0, 0, W); bg.addColorStop(0, '#0d111a'); bg.addColorStop(1, '#090c13');
+      cc.fillStyle = bg; cc.fillRect(0, 0, W, W);
+      for (let i = 0; i < n * n; i++){
+        const x = (i % n) * s + gap, y = Math.floor(i / n) * s + gap;
+        rr(cc, x, y, s - gap * 2, s - gap * 2, R);
+        cc.fillStyle = '#3a4255'; cc.fill();
+        cc.strokeStyle = 'rgba(255,255,255,0.06)'; cc.lineWidth = 1; cc.stroke();
+      }
     }
+    c.drawImage(cellsCv, 0, 0);
     const ctr = i => [(i % n + 0.5) * s, (Math.floor(i / n) + 0.5) * s];
     // 선이 지나간 칸은 선 색으로 은은하게 물든다
     paths.forEach((p, k) => {
@@ -239,12 +266,7 @@ if (typeof document !== 'undefined') (function(){
           const u = ((t / 2400) + k * 0.13) % 1;
           c.strokeStyle = alphaOf(col, (1 - u) * 0.28); c.lineWidth = s * 0.04; c.beginPath(); c.arc(x, y, ρ * (1.05 + u * 0.55), 0, 6.283); c.stroke();
         }
-        c.save(); c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = s * 0.14; c.shadowOffsetY = s * 0.05;
-        const g = c.createRadialGradient(x - ρ * 0.32, y - ρ * 0.38, ρ * 0.08, x, y, ρ);
-        g.addColorStop(0, shade(col, 0.7)); g.addColorStop(0.42, col); g.addColorStop(1, shade(col, -0.35));
-        c.fillStyle = g; c.beginPath(); c.arc(x, y, ρ, 0, 6.283); c.fill(); c.restore();
-        c.strokeStyle = done ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.28)'; c.lineWidth = Math.max(1.2, s * 0.03); c.beginPath(); c.arc(x, y, ρ, 0, 6.283); c.stroke();
-        c.fillStyle = 'rgba(255,255,255,0.7)'; c.beginPath(); c.ellipse(x - ρ * 0.34, y - ρ * 0.42, ρ * 0.2, ρ * 0.11, -0.6, 0, 6.283); c.fill();
+        const sp = beadSprite(col, ρ, done, s); c.drawImage(sp, x - sp.width / 2, y - sp.height / 2);
       });
     });
     // 효과

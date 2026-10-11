@@ -7,17 +7,31 @@ const SKY = {
   winter: ['#040a1a', '#0e2250', '#34609a']
 };
 const Bg = (() => {
-  const cv = document.createElement('canvas');
-  cv.id = 'bg';
-  cv.setAttribute('aria-hidden', 'true');
-  cv.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:-1;pointer-events:none;background:none;border-radius:0;aspect-ratio:auto;max-width:none';
+  // 세 장의 캔버스를 겹친다: 하늘(느리게 갱신) / 풍경(크기가 바뀔 때만 그림) / 앞(떨어지는 것들)
+  const mk = id => {
+    const c = document.createElement('canvas');
+    c.id = id; c.setAttribute('aria-hidden', 'true');
+    c.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:-1;pointer-events:none;background:none;border-radius:0;aspect-ratio:auto;max-width:none';
+    return c;
+  };
+  const cvSky = mk('bgSky'), scene = mk('bgScene'), cv = mk('bgFront');
   document.body.insertBefore(cv, document.body.firstChild);
-  const g = cv.getContext('2d');
-  const scene = document.createElement('canvas'), sg = scene.getContext('2d');
+  document.body.insertBefore(scene, cv);
+  document.body.insertBefore(cvSky, scene);
+  const g = cv.getContext('2d'), gs = cvSky.getContext('2d'), sg = scene.getContext('2d');
+  const skyBase = document.createElement('canvas'), sb = skyBase.getContext('2d');
+  const aurora = document.createElement('canvas'), au = aurora.getContext('2d');
+  const sprites = new Map();
+  function sprite(key, size, fn){
+    let s = sprites.get(key);
+    if (!s){ s = document.createElement('canvas'); s.width = s.height = size; const c = s.getContext('2d'); c.translate(size / 2, size / 2); fn(c); sprites.set(key, s); }
+    return s;
+  }
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const rnd = (a, b) => a + Math.random() * (b - a);
   const lcg = seed => { let s = seed >>> 0; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; };
-  let W = 0, H = 0, D = 1, season = 'summer', parts = [], clouds = [], stars = [], gulls = [], raf = 0, last = 0;
+  const D = 1;   // 배경은 흐려도 괜찮으니 해상도를 1배로 고정해 폰이 버겁지 않게 한다
+  let W = 0, H = 0, season = 'summer', parts = [], clouds = [], stars = [], gulls = [], raf = 0, lastP = 0, lastS = 0, hasBase = false;
 
   // ----- 그리기 도우미 -----
   // 부드러운 1차원 노이즈: 산등성이와 언덕의 윤곽을 자연스럽게 만든다
@@ -192,7 +206,7 @@ const Bg = (() => {
   // ----- 풍경(크기가 바뀔 때만 한 번 그린다) -----
   let glints = [], chimney = null;
   function buildScene(){
-    scene.width = cv.width; scene.height = cv.height;
+    scene.width = W; scene.height = H;
     sg.setTransform(D, 0, 0, D, 0, 0); sg.clearRect(0, 0, W, H);
     const r = lcg(season.charCodeAt(0) * 977), hz = H * 0.7, base = Math.min(W, H);
     glints = []; chimney = null;
@@ -207,7 +221,7 @@ const Bg = (() => {
         sg.strokeStyle = 'rgba(255,255,255,' + (0.05 + 0.13 * k) + ')'; sg.lineWidth = 0.8 + k * 1.8;
         sg.beginPath(); for (let x = 0; x <= W; x += 8) sg.lineTo(x, y + Math.sin(x * (0.03 - k * 0.012) + i * 2.1) * (0.8 + k * 3.4)); sg.stroke();
       }
-      for (let i = 0; i < 70; i++){ const k = Math.pow(r(), 1.4); glints.push({ x: W * 0.8 + (r() - 0.5) * (30 + k * W * 0.3), y: hz + 6 + k * (H - hz - 40), w: 4 + r() * 16 * (0.4 + k), ph: r() * 6.28 }); }
+      for (let i = 0; i < 40; i++){ const k = Math.pow(r(), 1.4); glints.push({ x: W * 0.8 + (r() - 0.5) * (30 + k * W * 0.3), y: hz + 6 + k * (H - hz - 40), w: 4 + r() * 16 * (0.4 + k), ph: r() * 6.28 }); }
       layer(sg, { seed: 9, y0: H * 0.945, amp: 14, scale: 0.01, top: '#f0d9a2', bot: '#b48c52' });
       palm(sg, W * 0.09, H * 0.97, Math.min(H * 0.4, 330), r);
       palm(sg, W * 0.93, H * 0.985, Math.min(H * 0.3, 250), r);
@@ -307,70 +321,85 @@ const Bg = (() => {
   }
 
   // ----- 움직이는 것들 -----
+  function cloudSprite(s, a, tint){
+    const c = document.createElement('canvas'); c.width = Math.ceil(s * 4.4); c.height = Math.ceil(s * 2.2);
+    cloud(c.getContext('2d'), c.width / 2, c.height / 2, s, a, tint); return c;
+  }
   function make(){
-    const n = Math.max(22, Math.min(60, Math.round(W * H / 26000)));
+    const n = Math.max(14, Math.min(34, Math.round(W * H / 42000)));
     parts = [];
     for (let i = 0; i < n; i++){
       const p = { x: rnd(0, W), y: rnd(0, H), ph: rnd(0, 6.28), rot: rnd(0, 6.28), vr: rnd(-1.2, 1.2), tum: rnd(0, 6.28), tv: rnd(1.5, 3.5) };
       if (season === 'summer'){ p.r = rnd(1.5, 3.2); p.vy = -rnd(8, 22); p.a = rnd(0.35, 0.8); }
-      else if (season === 'spring'){ p.s = rnd(5, 8); p.vy = rnd(24, 44); }
-      else if (season === 'autumn'){ p.s = rnd(8, 13); p.vy = rnd(34, 62); p.c = ['#e8791d', '#d1451b', '#f2b134', '#b23a14'][i % 4]; p.k = i % 3 === 0 ? 0 : 1; }
-      else { p.r = rnd(1.2, 4.4); p.vy = rnd(16, 46); }
+      else if (season === 'spring'){ p.s = Math.round(rnd(5, 8)); p.vy = rnd(24, 44); }
+      else if (season === 'autumn'){ p.s = Math.round(rnd(8, 13)); p.vy = rnd(34, 62); p.c = ['#e8791d', '#d1451b', '#f2b134', '#b23a14'][i % 4]; p.k = i % 3 === 0 ? 0 : 1; }
+      else { p.r = Math.round(rnd(1.2, 4.4) * 2) / 2; p.vy = rnd(16, 46); }
       parts.push(p);
     }
     clouds = [];
-    for (let i = 0; i < 5; i++) clouds.push({ x: rnd(0, W), y: rnd(H * 0.06, H * 0.34), s: rnd(50, 110), v: rnd(4, 11) });
+    const tint = season === 'spring' ? '255,225,235' : season === 'autumn' ? '255,215,170' : '255,255,255';
+    if (season !== 'winter') for (let i = 0; i < 4; i++){ const s = Math.round(rnd(50, 110)); clouds.push({ x: rnd(0, W), y: rnd(H * 0.06, H * 0.34), s, v: rnd(4, 11), spr: cloudSprite(s, season === 'summer' ? 0.5 : 0.32, tint) }); }
     stars = [];
-    for (let i = 0; i < 90; i++) stars.push({ x: rnd(0, W), y: rnd(0, H * 0.55), r: rnd(0.4, 1.4), ph: rnd(0, 6.28) });
+    for (let i = 0; i < 60; i++) stars.push({ x: rnd(0, W), y: rnd(0, H * 0.55), r: rnd(0.5, 1.4), ph: rnd(0, 6.28) });
     gulls = [];
     for (let i = 0; i < 3; i++) gulls.push({ x: rnd(0, W), y: rnd(H * 0.12, H * 0.4), s: rnd(7, 12), v: rnd(18, 32) });
+    buildSkyBase();
   }
-  function sky(t){
+  // 하늘에서 움직이지 않는 부분(해, 달, 햇살)은 한 번만 그려 둔다
+  function buildSkyBase(){
+    skyBase.width = W; skyBase.height = H; hasBase = true;
+    const c = sb;
     if (season === 'summer'){
       const sx = W * 0.8, sy = H * 0.18;
-      const gl = g.createRadialGradient(sx, sy, 0, sx, sy, Math.max(220, W * 0.4)); gl.addColorStop(0, 'rgba(255,236,160,0.6)'); gl.addColorStop(1, 'rgba(255,236,160,0)');
-      g.fillStyle = gl; g.fillRect(0, 0, W, H);
-      g.save(); g.translate(sx, sy); g.rotate(t / 20000);
-      for (let i = 0; i < 12; i++){ g.rotate(Math.PI / 6); g.fillStyle = 'rgba(255,240,180,0.07)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-18, -Math.max(W, H)); g.lineTo(18, -Math.max(W, H)); g.fill(); }
-      g.restore();
-      g.fillStyle = '#fff7cf'; g.beginPath(); g.arc(sx, sy, 34, 0, 6.283); g.fill();
+      const gl = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(220, W * 0.4)); gl.addColorStop(0, 'rgba(255,236,160,0.6)'); gl.addColorStop(1, 'rgba(255,236,160,0)');
+      c.fillStyle = gl; c.fillRect(0, 0, W, H);
+      c.save(); c.translate(sx, sy);
+      for (let i = 0; i < 12; i++){ c.rotate(Math.PI / 6); c.fillStyle = 'rgba(255,240,180,0.07)'; c.beginPath(); c.moveTo(0, 0); c.lineTo(-18, -Math.max(W, H)); c.lineTo(18, -Math.max(W, H)); c.fill(); }
+      c.restore();
+      c.fillStyle = '#fff7cf'; c.beginPath(); c.arc(sx, sy, 34, 0, 6.283); c.fill();
     } else if (season === 'autumn'){
       const sx = W * 0.68, sy = H * 0.66;
-      const gl = g.createRadialGradient(sx, sy, 0, sx, sy, Math.max(260, W * 0.5)); gl.addColorStop(0, 'rgba(255,170,70,0.7)'); gl.addColorStop(1, 'rgba(255,170,70,0)');
-      g.fillStyle = gl; g.fillRect(0, 0, W, H);
-      g.fillStyle = 'rgba(255,214,140,0.9)'; g.beginPath(); g.arc(sx, sy, 40, 0, 6.283); g.fill();
+      const gl = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(260, W * 0.5)); gl.addColorStop(0, 'rgba(255,170,70,0.7)'); gl.addColorStop(1, 'rgba(255,170,70,0)');
+      c.fillStyle = gl; c.fillRect(0, 0, W, H);
+      c.fillStyle = 'rgba(255,214,140,0.9)'; c.beginPath(); c.arc(sx, sy, 40, 0, 6.283); c.fill();
     } else if (season === 'winter'){
-      for (let k = 0; k < 3; k++){
-        const yy = H * (0.2 + k * 0.07), ag = g.createLinearGradient(0, yy - 60, 0, yy + 60); ag.addColorStop(0, 'rgba(80,255,170,0)'); ag.addColorStop(0.5, 'rgba(80,255,170,' + (0.09 + 0.04 * Math.sin(t / 2500 + k)) + ')'); ag.addColorStop(1, 'rgba(120,120,255,0)');
-        g.fillStyle = ag; g.beginPath(); g.moveTo(0, yy);
-        for (let x = 0; x <= W; x += 20) g.lineTo(x, yy + Math.sin(x / 140 + t / 3000 + k * 2) * 26);
-        g.lineTo(W, yy + 80); g.lineTo(0, yy + 80); g.closePath(); g.fill();
-      }
-      for (const s of stars){ g.fillStyle = 'rgba(255,255,255,' + (0.35 + 0.5 * Math.abs(Math.sin(t / 900 + s.ph))) + ')'; g.beginPath(); g.arc(s.x, s.y, s.r, 0, 6.283); g.fill(); }
       const mx = W * 0.8, my = H * 0.16;
-      const gl = g.createRadialGradient(mx, my, 0, mx, my, 130); gl.addColorStop(0, 'rgba(210,225,255,0.45)'); gl.addColorStop(1, 'rgba(210,225,255,0)');
-      g.fillStyle = gl; g.fillRect(mx - 140, my - 140, 280, 280);
-      g.fillStyle = '#f2f6ff'; g.beginPath(); g.arc(mx, my, 26, 0, 6.283); g.fill();
-      g.fillStyle = 'rgba(160,175,205,0.35)'; for (const c of [[-8, -6, 6], [7, 5, 5], [-3, 10, 3.5]]){ g.beginPath(); g.arc(mx + c[0], my + c[1], c[2], 0, 6.283); g.fill(); }
-    }
-    if (season !== 'winter'){
-      const tint = season === 'spring' ? '255,225,235' : season === 'autumn' ? '255,215,170' : '255,255,255';
-      for (const c of clouds) cloud(g, c.x, c.y, c.s, season === 'summer' ? 0.5 : 0.32, tint);
+      const gl = c.createRadialGradient(mx, my, 0, mx, my, 130); gl.addColorStop(0, 'rgba(210,225,255,0.45)'); gl.addColorStop(1, 'rgba(210,225,255,0)');
+      c.fillStyle = gl; c.fillRect(mx - 140, my - 140, 280, 280);
+      c.fillStyle = '#f2f6ff'; c.beginPath(); c.arc(mx, my, 26, 0, 6.283); c.fill();
+      c.fillStyle = 'rgba(160,175,205,0.35)'; for (const k of [[-8, -6, 6], [7, 5, 5], [-3, 10, 3.5]]){ c.beginPath(); c.arc(mx + k[0], my + k[1], k[2], 0, 6.283); c.fill(); }
+      // 오로라는 한 번 그려 두고 밝기만 천천히 바꾼다
+      aurora.width = W + 60; aurora.height = Math.round(H * 0.5);
+      for (let k = 0; k < 3; k++){
+        const yy = H * (0.2 + k * 0.07), ag = au.createLinearGradient(0, yy - 60, 0, yy + 60); ag.addColorStop(0, 'rgba(80,255,170,0)'); ag.addColorStop(0.5, 'rgba(80,255,170,0.12)'); ag.addColorStop(1, 'rgba(120,120,255,0)');
+        au.fillStyle = ag; au.beginPath(); au.moveTo(0, yy);
+        for (let x = 0; x <= W + 60; x += 20) au.lineTo(x, yy + Math.sin(x / 140 + k * 2) * 26);
+        au.lineTo(W + 60, yy + 80); au.lineTo(0, yy + 80); au.closePath(); au.fill();
+      }
     }
   }
+  function sky(t){
+    gs.clearRect(0, 0, W, H);
+    if (hasBase) gs.drawImage(skyBase, 0, 0);
+    if (season === 'winter'){
+      gs.globalAlpha = 0.75 + 0.25 * Math.sin(t / 2500); gs.drawImage(aurora, -30 + Math.sin(t / 5000) * 24, 0); gs.globalAlpha = 1;
+      for (const s of stars){ gs.fillStyle = 'rgba(255,255,255,' + (0.35 + 0.5 * Math.abs(Math.sin(t / 900 + s.ph))) + ')'; gs.fillRect(s.x, s.y, s.r * 2, s.r * 2); }
+    }
+    for (const c of clouds) gs.drawImage(c.spr, c.x - c.spr.width / 2, c.y - c.spr.height / 2);
+  }
+  // 떨어지는 것은 한 번 그린 그림(스프라이트)을 위치만 바꿔 찍는다
   function drawParts(t){
+    g.clearRect(0, 0, W, H);
     for (const p of parts){
-      const x = p.x + Math.sin(t / 1300 + p.ph) * 20;
-      g.save(); g.translate(x, p.y); g.rotate(p.rot);
-      const flip = Math.cos(p.tum + t / 1000 * p.tv);
+      const x = p.x + Math.sin(t / 1300 + p.ph) * 20, flip = Math.cos(p.tum + t / 1000 * p.tv), fb = Math.min(3, Math.floor(Math.abs(flip) * 4));
+      let spr, rot = p.rot;
       if (season === 'summer'){
-        g.rotate(-p.rot);
-        const gr = g.createRadialGradient(0, 0, 0, 0, 0, p.r * 2.4); gr.addColorStop(0, 'rgba(255,248,200,' + p.a + ')'); gr.addColorStop(1, 'rgba(255,248,200,0)');
-        g.fillStyle = gr; g.beginPath(); g.arc(0, 0, p.r * 2.4, 0, 6.283); g.fill();
-      } else if (season === 'spring') petal(g, p.s, flip);
-      else if (season === 'autumn') leaf(g, p.s, p.c, p.k, flip);
-      else flake(g, p.r);
-      g.restore();
+        spr = sprite('pol' + Math.round(p.r * 2), Math.ceil(p.r * 5) + 4, c => { const gr = c.createRadialGradient(0, 0, 0, 0, 0, p.r * 2.4); gr.addColorStop(0, 'rgba(255,248,200,1)'); gr.addColorStop(1, 'rgba(255,248,200,0)'); c.fillStyle = gr; c.beginPath(); c.arc(0, 0, p.r * 2.4, 0, 6.283); c.fill(); });
+        g.globalAlpha = p.a; g.drawImage(spr, x - spr.width / 2, p.y - spr.height / 2); g.globalAlpha = 1; continue;
+      } else if (season === 'spring') spr = sprite('p' + p.s + fb, p.s * 3, c => petal(c, p.s, (fb + 0.5) / 4));
+      else if (season === 'autumn') spr = sprite('l' + p.k + p.c + p.s + fb, p.s * 3, c => leaf(c, p.s, p.c, p.k, (fb + 0.5) / 4));
+      else spr = sprite('f' + p.r, Math.ceil(p.r * 5) + 8, c => flake(c, p.r));
+      g.save(); g.translate(x, p.y); g.rotate(rot); g.drawImage(spr, -spr.width / 2, -spr.height / 2); g.restore();
     }
     if (chimney){
       for (let k = 0; k < 7; k++){
@@ -383,29 +412,29 @@ const Bg = (() => {
       for (const b of gulls) gull(g, b.x, b.y, b.s, t);
     }
   }
-  function frame(t){
-    g.clearRect(0, 0, W, H);
-    sky(t);
-    g.drawImage(scene, 0, 0, W, H);
-    drawParts(t);
-  }
+  function frame(t){ sky(t); drawParts(t); }
   function step(t){
     raf = requestAnimationFrame(step);
-    if (t - last < 33) return;
-    const dt = Math.min(0.1, (t - last) / 1000); last = t;
-    for (const p of parts){
-      p.y += p.vy * dt; p.rot += p.vr * dt;
-      if (p.vy > 0 && p.y > H + 24){ p.y = -24; p.x = rnd(0, W); }
-      if (p.vy < 0 && p.y < -24){ p.y = H + 24; p.x = rnd(0, W); }
+    if (document.hidden) return;
+    if (t - lastP >= 45){   // 약 22프레임
+      const dt = Math.min(0.1, (t - lastP) / 1000); lastP = t;
+      for (const p of parts){
+        p.y += p.vy * dt; p.rot += p.vr * dt;
+        if (p.vy > 0 && p.y > H + 24){ p.y = -24; p.x = rnd(0, W); }
+        if (p.vy < 0 && p.y < -24){ p.y = H + 24; p.x = rnd(0, W); }
+      }
+      for (const b of gulls){ b.x += b.v * dt; if (b.x > W + 30) b.x = -30; }
+      drawParts(t);
     }
-    for (const c of clouds){ c.x += c.v * dt; if (c.x - c.s * 2 > W) c.x = -c.s * 2; }
-    for (const b of gulls){ b.x += b.v * dt; if (b.x > W + 30) b.x = -30; }
-    frame(t);
+    if (t - lastS >= 100){   // 하늘은 10프레임이면 충분하다
+      const dt = Math.min(0.3, (t - lastS) / 1000); lastS = t;
+      for (const c of clouds){ c.x += c.v * dt; if (c.x - c.s * 2.2 > W) c.x = -c.s * 2.2; }
+      sky(t);
+    }
   }
   function resize(){
-    D = Math.min(window.devicePixelRatio || 1, 2); W = window.innerWidth; H = window.innerHeight;
-    cv.width = Math.round(W * D); cv.height = Math.round(H * D);
-    g.setTransform(D, 0, 0, D, 0, 0);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = cvSky.width = W; cv.height = cvSky.height = H;
     buildScene();
   }
   function set(s){
@@ -415,9 +444,9 @@ const Bg = (() => {
     document.body.style.backgroundColor = c[1];
     resize(); make();
     cancelAnimationFrame(raf);
-    if (reduce) frame(0); else { last = 0; raf = requestAnimationFrame(step); }
+    if (reduce) frame(0); else { lastP = lastS = 0; raf = requestAnimationFrame(step); }
   }
-  window.addEventListener('resize', () => { resize(); make(); if (reduce) frame(0); });
+  let rt = 0;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { resize(); make(); if (reduce) frame(0); }, 180); });
   return { set };
 })();
-
