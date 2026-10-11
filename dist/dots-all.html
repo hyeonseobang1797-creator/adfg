@@ -66,6 +66,24 @@
   #msg{min-height:20px;line-height:20px;font-size:14px}
   h1{font-size:19px}
   @media (max-height:480px){html,body{overflow:auto}body{height:auto;min-height:100%}}
+  .head{position:relative;display:flex;justify-content:center;align-items:center;width:min(100%,520px)}
+  #openSettings{position:absolute;right:0;top:50%;transform:translateY(-50%);min-height:32px;padding:4px 12px;font-size:13px}
+  #openSettings:not(:disabled):active{transform:translateY(-50%) scale(.94)}
+  #settings{position:fixed;left:0;top:0;right:0;bottom:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:8;touch-action:auto}
+  #settings .box{background:var(--panel);border-radius:14px;padding:18px;width:min(100%,340px);display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+  #settings h2{margin:0;font-size:18px}
+  .srow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px;min-height:36px}
+  .sw{width:52px;height:30px;min-height:0;border-radius:15px;padding:0;position:relative;background:#3a4255;border:1px solid var(--line)}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#cfd6e6;transition:transform .15s}
+  .sw[aria-pressed=true]{background:var(--accent);border-color:var(--accent)}
+  .sw[aria-pressed=true]::after{transform:translateX(22px);background:#fff}
+  button.danger{border-color:#b04a4a;color:#ff9a9a}
+  #confirm{background:#2a1c1c;border:1px solid #6b3434;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;text-align:center}
+  #confirm p{margin:0;font-weight:600}
+  #settings .row{display:flex;gap:8px}
+  #settings .row button{flex:1}
+  #settings .hint{margin:0;font-size:12px;color:var(--muted);text-align:center}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   #modes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
     h1,.sub,.note{text-shadow:0 1px 4px rgba(0,0,0,.6)}
   .sub,.note{color:#e3e9f7}
@@ -80,24 +98,21 @@
 </style>
 </head>
 <body>
-<h1>점 잇기 퍼즐</h1>
+<div class="head"><h1>점 잇기 퍼즐</h1><button type="button" id="openSettings">설정</button></div>
 <p class="sub">같은 색 점끼리 선으로 연결하고, 판의 모든 칸을 채우세요. 선은 서로 겹칠 수 없어요.</p>
-<div class="acct">
-  <div id="guestBox"><button id="openAuth">로그인 / 회원가입</button></div>
-  <div id="userBox" hidden><b id="who"></b><label class="chk"><input type="checkbox" id="auto"> 자동 로그인</label><button id="logout">로그아웃</button></div>
-  <button id="musicBtn" aria-pressed="true">♪ 소리 켬</button>
-  <div class="note" id="note"></div>
-</div>
-<div id="auth" hidden>
-  <form id="authForm" autocomplete="off">
-    <div class="tabs"><button type="button" id="tabLogin" class="on">로그인</button><button type="button" id="tabSignup">회원가입</button></div>
-    <label for="uid">아이디</label><input id="uid" maxlength="16" autocomplete="username">
-    <label for="pw">비밀번호</label><input id="pw" type="password" autocomplete="current-password">
-    <div id="pw2row" hidden><label for="pw2">비밀번호 확인</label><input id="pw2" type="password" autocomplete="new-password"></div>
-    <label class="chk"><input type="checkbox" id="autoNew" checked> 자동 로그인</label>
-    <div id="err" role="alert"></div>
-    <div class="row"><button type="submit" id="go" class="primary">로그인</button><button type="button" id="closeAuth">닫기</button></div>
-  </form>
+<div id="settings" hidden>
+  <div class="box" role="dialog" aria-label="설정">
+    <h2>설정</h2>
+    <div class="srow"><span>배경음악</span><button type="button" id="tgMusic" class="sw" aria-pressed="true" aria-label="배경음악"></button></div>
+    <div class="srow"><span>효과음</span><button type="button" id="tgSfx" class="sw" aria-pressed="true" aria-label="효과음"></button></div>
+    <div class="srow"><span>진행 상황</span><button type="button" id="resetAll" class="danger">초기화</button></div>
+    <div id="confirm" hidden>
+      <p>정말 초기화 하시겠습니까?</p>
+      <div class="row"><button type="button" id="yes" class="danger">예</button><button type="button" id="no">아니요</button></div>
+    </div>
+    <p class="hint">진행 상황은 이 기기에 자동으로 저장돼요.</p>
+    <button type="button" id="closeSettings" class="primary">닫기</button>
+  </div>
 </div>
 <div id="modes"><button data-mode="easy">쉬움</button><button data-mode="normal">보통</button><button data-mode="hard">어려움</button><button data-mode="extreme">익스트림</button></div>
 <div class="bar">
@@ -113,21 +128,6 @@
 <canvas id="c" width="520" height="520"></canvas>
 <div id="msg"></div>
 <div id="sel" hidden><div id="grid"></div></div>
-<script>
-// 이 파일을 단독으로 열면 계정은 이 기기의 브라우저에만 저장된다
-(function(){
-  if (window.claude && window.claude.use) return;
-  var KEY = 'dotsLocalDb';
-  function load(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
-  function save(o){ localStorage.setItem(KEY, JSON.stringify(o)); }
-  var db = { doc: function(p){ return {
-    get: async function(){ var d = load()[p]; return { exists: !!d, data: function(){ return d; } }; },
-    set: async function(x){ var o = load(); o[p] = x; save(o); },
-    update: async function(x){ var o = load(); o[p] = Object.assign({}, o[p], x); save(o); }
-  }; } };
-  window.claude = { use: async function(n){ return n === 'db' ? db : null; } };
-})();
-</script>
 <script>
 const COLORS = ['#ff4d4d','#3fa9ff','#ffd23f','#3ddc84','#ff8c1a','#c26bff','#00e5d0','#ff6bb5','#a0a8ff','#b5651d','#c8ff3f','#ffffff','#7a5cff','#ff9e9e','#2f8f5b','#d4a5ff','#4d6bff','#ffb36b','#6bffd8','#e04dff','#9aff4d','#ff4d9a','#4dd2ff','#d9b38c'];
 const TOTAL = 480;
@@ -676,9 +676,10 @@ const Music = (() => {
     for (let s = 0, t = 0; t < seconds; s++, t += sd) schedule(ctx, b, cfg, s, t, st);
   }
 
-  let ctx = null, master = null, sfxOut = null, cur = null, timer = 0, step = 0, nextT = 0, mode = 'easy', want = false, st = { pos: 3 };
-  const btn = document.getElementById('musicBtn');
-  function paint(){ if (btn){ btn.setAttribute('aria-pressed', want ? 'true' : 'false'); btn.textContent = want ? '♪ 소리 켬' : '♪ 소리 끔'; } }
+  let ctx = null, master = null, sfxOut = null, cur = null, timer = 0, step = 0, nextT = 0, mode = 'easy', playing = false, st = { pos: 3 };
+  let musicOn = true, sfxOn = true;
+  try { const s = JSON.parse(localStorage.getItem('dotsSettings') || '{}'); if (s.music === false) musicOn = false; if (s.sfx === false) sfxOn = false; } catch (e) {}
+  const saveSettings = () => { try { localStorage.setItem('dotsSettings', JSON.stringify({ music: musicOn, sfx: sfxOn })); } catch (e) {} };
   function ensure(){
     if (ctx) return true;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -698,49 +699,37 @@ const Music = (() => {
     clearInterval(timer);
     if (cur) try { cur.input.disconnect(); } catch (e) {}
     cur = bus(ctx, master, CFG[mode]); step = 0; st = { pos: 3 }; nextT = ctx.currentTime + 0.1;
-    timer = setInterval(loop, 120);
+    timer = setInterval(loop, 120); playing = true;
     master.gain.cancelScheduledValues(ctx.currentTime);
     master.gain.setTargetAtTime(1.0, ctx.currentTime, 0.5);
   }
-  function start(){
-    want = true; paint();
-    try { localStorage.setItem('dotsMusic', '1'); } catch (e) {}
-    if (!ensure()) return;
-    ctx.resume(); begin();
-  }
-  function stop(){
-    want = false; paint();
-    try { localStorage.setItem('dotsMusic', '0'); } catch (e) {}
-    if (!ctx) return;
-    master.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
-    clearInterval(timer);
-  }
+  function startMusic(){ if (!musicOn || !ensure()) return; ctx.resume(); begin(); }
+  function stopMusic(){ playing = false; clearInterval(timer); if (ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 0.15); }
+  function setMusic(on){ musicOn = on; saveSettings(); on ? startMusic() : stopMusic(); }
+  function setSfx(on){ sfxOn = on; saveSettings(); }
   function setMode(m){
     mode = m;
-    if (ctx && want){
+    if (ctx && musicOn && playing){
       master.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
       clearInterval(timer);
-      setTimeout(() => { if (want) begin(); }, 450);
+      setTimeout(() => { if (musicOn) begin(); }, 450);
     }
   }
-  if (btn) btn.onclick = () => { want ? stop() : start(); };
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) ctx.suspend(); else if (want) ctx.resume();
+    if (document.hidden) ctx.suspend(); else ctx.resume();
   });
-  // 브라우저는 사용자가 한 번 누른 뒤에야 소리를 허락한다. 끈 적이 없으면 첫 터치에서 시작한다.
-  let pref = '1'; try { pref = localStorage.getItem('dotsMusic') || '1'; } catch (e) {}
-  want = pref === '1'; paint();
-  if (want){
-    const first = () => { document.removeEventListener('pointerdown', first); document.removeEventListener('keydown', first); if (want) start(); };
+  // 브라우저는 사용자가 한 번 누른 뒤에야 소리를 허락한다. 음악이 켜져 있으면 첫 터치에서 시작한다.
+  if (musicOn){
+    const first = () => { document.removeEventListener('pointerdown', first); document.removeEventListener('keydown', first); if (musicOn && !playing) startMusic(); };
     document.addEventListener('pointerdown', first); document.addEventListener('keydown', first);
   }
-  // 효과음: 소리가 켜져 있을 때만 낸다
+  // 효과음: 설정에서 켜져 있을 때만 낸다
   function sfx(fn){
-    if (!want) return;
+    if (!sfxOn) return;
     try { if (!ensure()) return; if (ctx.state === 'suspended') ctx.resume(); fn(ctx, sfxOut, ctx.currentTime); } catch (e) {}
   }
-  return { setMode, start, stop, renderSchedule, sfx };
+  return { setMode, setMusic, setSfx, get: () => ({ music: musicOn, sfx: sfxOn }), renderSchedule, sfx };
 })();
 
 const Sfx = (() => {
@@ -775,6 +764,7 @@ if (typeof document !== 'undefined') (function(){
     if (m === MODE) return;
     unlockedBy[MODE] = unlocked; MODE = m; unlocked = unlockedBy[m];
     try { localStorage.setItem('dotsMode', m); } catch (e) {}
+    saveProgress();
     renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE); buildSelect(); load(unlocked);
   }
 
@@ -877,7 +867,7 @@ if (typeof document !== 'undefined') (function(){
     if (filled !== n * n) { $('msg').textContent = '모든 칸을 채워야 해요!'; return; }
     solved = true; fxConfetti(); Sfx.clear(); buzz([20, 50, 20, 50, 40]);
     $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 잠시 후 다음 스테이지로 넘어가요';
-    if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; saveProgress(unlocked); }
+    if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; unlockedBy[MODE] = unlocked; saveProgress(); }
     buildSelect();
     if (levelIdx + 1 < TOTAL){
       const cleared = levelIdx;
@@ -1079,123 +1069,42 @@ if (typeof document !== 'undefined') (function(){
     sp.className = 'rip'; sp.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - r.left - d / 2) + 'px;top:' + (e.clientY - r.top - d / 2) + 'px';
     b.appendChild(sp); setTimeout(() => sp.remove(), 520);
   });
-  // ---------------- 계정 ----------------
-  let db = null, account = null;   // account = { key, name, hash }
-  const AUTO = 'dotsAuto';
-  const enc = new TextEncoder();
-  const hex = u8 => Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
-  const keyOf = name => 'u' + hex(enc.encode(name.toLowerCase()));
-  function cheapHash(str){
-    let h1 = 0xdeadbeef, h2 = 0x41c6ce57, out = '';
-    for (let r = 0; r < 4000; r++)
-      for (let i = 0; i < str.length; i++){
-        const ch = str.charCodeAt(i);
-        h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
-      }
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-    out = (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
-    return out;
-  }
-  async function hashPw(name, pw, salt){
-    if (!(window.crypto && crypto.subtle)) return 'c' + cheapHash(salt + name.toLowerCase() + pw);
-    const k = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
-    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt + name.toLowerCase()), iterations: 100000 }, k, 256);
-    return hex(new Uint8Array(bits));
-  }
-  function saveProgress(v){
-    if (!account || !db) return;
-    db.doc('accounts/' + account.key).update({ ['prog_' + MODE]: v }).catch(() => { $('msg').textContent = '진행 저장에 실패했어요'; });
-  }
-  function setAuto(on){
+  // ---------------- 저장: 이 기기의 브라우저에 자동으로 ----------------
+  const SAVE_KEY = 'dotsProgress';
+  function loadSave(){
     try {
-      if (on && account) localStorage.setItem(AUTO, JSON.stringify({ key: account.key, hash: account.hash }));
-      else localStorage.removeItem(AUTO);
+      const o = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+      MODES.forEach(m => { unlockedBy[m] = Math.max(0, Math.min(TOTAL - 1, Math.floor(+o[m] || 0))); });
     } catch (e) {}
   }
-  function autoOn(){ try { return !!localStorage.getItem(AUTO); } catch (e) { return false; } }
-  function renderAcct(){
-    const out = !account;
-    $('guestBox').hidden = !out;
-    $('userBox').hidden = out;
-    if (!out){ $('who').textContent = account.name; $('auto').checked = autoOn(); }
-    $('guestBox').querySelector('button').disabled = !db;
-    $('note').textContent = out ? (db ? '로그아웃 상태에서는 진행이 저장되지 않아요' : '이 화면에서는 로그인을 쓸 수 없어요') : '진행이 자동으로 저장돼요';
+  function saveProgress(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(unlockedBy)); } catch (e) {} }
+
+  // ---------------- 설정 ----------------
+  function paintSwitches(){ const s = Music.get(); $('tgMusic').setAttribute('aria-pressed', String(s.music)); $('tgSfx').setAttribute('aria-pressed', String(s.sfx)); }
+  function resetAll(){
+    MODES.forEach(m => { unlockedBy[m] = 0; }); unlocked = 0;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    for (const k in hintUsed) delete hintUsed[k];
+    buildSelect(); load(0);
+    $('msg').textContent = '처음부터 다시 시작해요';
   }
-  function enter(acc, data, auto){
-    account = acc;
-    MODES.forEach(m => { unlockedBy[m] = Math.min(TOTAL - 1, +data['prog_' + m] || (m === 'extreme' ? +data.unlocked : 0) || 0); });
-    unlocked = unlockedBy[MODE];
-    setAuto(auto); renderAcct(); buildSelect(); load(unlocked);
+  function initSettings(){
+    const close = () => { $('settings').hidden = true; };
+    $('openSettings').onclick = () => { paintSwitches(); $('confirm').hidden = true; $('resetAll').hidden = false; $('settings').hidden = false; };
+    $('closeSettings').onclick = close;
+    $('settings').addEventListener('pointerdown', e => { if (e.target === $('settings')) close(); });
+    $('tgMusic').onclick = () => { Music.setMusic(!Music.get().music); paintSwitches(); };
+    $('tgSfx').onclick = () => { Music.setSfx(!Music.get().sfx); paintSwitches(); };
+    $('resetAll').onclick = () => { $('confirm').hidden = false; $('resetAll').hidden = true; };
+    $('no').onclick = () => { $('confirm').hidden = true; $('resetAll').hidden = false; };
+    $('yes').onclick = () => { resetAll(); close(); };
   }
-  function logout(){
-    account = null; setAuto(false); unlocked = 0; MODES.forEach(m => { unlockedBy[m] = 0; });
-    renderAcct(); buildSelect(); load(0);
-  }
-  let mode = 'login';
-  function setMode(m){
-    mode = m;
-    $('tabLogin').classList.toggle('on', m === 'login');
-    $('tabSignup').classList.toggle('on', m === 'signup');
-    $('pw2row').hidden = m !== 'signup';
-    $('go').textContent = m === 'login' ? '로그인' : '회원가입';
-    $('err').textContent = '';
-  }
-  async function submitAuth(e){
-    e.preventDefault();
-    const name = $('uid').value.trim(), pw = $('pw').value, err = $('err');
-    err.textContent = '';
-    if (!db){ err.textContent = '로그인을 쓸 수 없어요'; return; }
-    if (!/^[A-Za-z0-9_가-힣]{2,16}$/.test(name)){ err.textContent = '아이디는 2~16자의 글자, 숫자, _ 만 쓸 수 있어요'; return; }
-    if (pw.length < 4){ err.textContent = '비밀번호는 4자 이상이어야 해요'; return; }
-    $('go').disabled = true;
-    try {
-      const ref = db.doc('accounts/' + keyOf(name)), snap = await ref.get();
-      if (mode === 'signup'){
-        if (pw !== $('pw2').value){ err.textContent = '비밀번호가 서로 달라요'; return; }
-        if (snap.exists){ err.textContent = '이미 있는 아이디예요'; return; }
-        const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
-        const hash = await hashPw(name, pw, salt);
-        await ref.set({ name, salt, hash, unlocked: 0, created: Date.now() });
-        enter({ key: keyOf(name), name, hash }, { unlocked: 0 }, $('autoNew').checked);
-      } else {
-        const d = snap.exists && snap.data();
-        const hash = d ? await hashPw(d.name, pw, d.salt) : '';
-        if (!d || hash !== d.hash){ err.textContent = '아이디 또는 비밀번호가 맞지 않아요'; return; }
-        enter({ key: keyOf(name), name: d.name, hash }, d, $('autoNew').checked);
-      }
-      $('auth').hidden = true; $('pw').value = ''; $('pw2').value = '';
-    } catch (ex) {
-      err.textContent = '처리하지 못했어요. 잠시 뒤에 다시 시도해 주세요';
-    } finally { $('go').disabled = false; }
-  }
-  $('openAuth').onclick = () => { setMode('login'); $('auth').hidden = false; $('uid').focus(); };
-  $('closeAuth').onclick = () => { $('auth').hidden = true; };
-  $('tabLogin').onclick = () => setMode('login');
-  $('tabSignup').onclick = () => setMode('signup');
-  $('authForm').addEventListener('submit', submitAuth);
-  $('logout').onclick = logout;
-  $('auto').onchange = e => setAuto(e.target.checked);
 
   document.querySelectorAll('#modes button[data-mode]').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
+  loadSave(); unlocked = unlockedBy[MODE];
   renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
-  load(0);
-  renderAcct();
-  (async function initAuth(){
-    try {
-      db = window.claude && window.claude.use ? await window.claude.use('db') : null;
-    } catch (e) { db = null; }
-    renderAcct();
-    if (!db) return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(AUTO) || 'null');
-      if (!saved) return;
-      const snap = await db.doc('accounts/' + saved.key).get();
-      const d = snap.exists && snap.data();
-      if (d && d.hash === saved.hash) enter({ key: saved.key, name: d.name, hash: d.hash }, d, true);
-      else setAuto(false);
-    } catch (e) {}
-  })();
+  buildSelect(); load(unlocked);
+  initSettings();
 })();
 </script>
 </body>

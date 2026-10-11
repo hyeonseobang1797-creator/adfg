@@ -1,5 +1,5 @@
 // 사용법: node tools/build.js -> tools/final_<easy|normal|hard|extreme>.jsonl 네 개를 한 파일(index.html)에 넣어 만든다.
-// 한 파일 안에서 난이도를 고르고, 계정(로그인)은 네 난이도가 함께 쓴다. 진행 상황은 난이도별로 따로 저장된다.
+// 한 파일 안에서 난이도를 고른다. 진행 상황은 이 기기의 브라우저에 난이도별로 자동 저장된다.
 const fs = require('fs');
 const core = fs.readFileSync(__dirname + '/core.js', 'utf8');
 const runtimeHead = core.slice(core.indexOf('const COLORS'), core.indexOf('// 격자를'));   // COLORS, TOTAL, KINDS, stageParams, maxHints, mulberry32, neighbors
@@ -38,7 +38,6 @@ function makeLevel(idx){
 let top = fs.readFileSync(__dirname + '/shell_top.html', 'utf8');
 top = top.replace('</style>', '  #modes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}\n    h1,.sub,.note{text-shadow:0 1px 4px rgba(0,0,0,.6)}\n  .sub,.note{color:#e3e9f7}\n  button{position:relative;overflow:hidden;transition:transform .08s ease,box-shadow .18s ease,border-color .18s ease,background-color .18s ease}\n  button:not(:disabled):hover{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}\n  button:not(:disabled):active{transform:scale(.94)}\n  .rip{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.38);transform:scale(0);animation:rip .5s ease-out forwards}\n  @keyframes rip{to{transform:scale(1);opacity:0}}\n  #musicBtn{font-size:13px;padding:6px 12px;min-height:34px}\n  #musicBtn[aria-pressed=false]{opacity:.6}\n  #modes button.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}\n</style>');
 top = top.replace('<div id="modes">', '<div id="modes">')
-top = top.replace('<div class="note" id="note"></div>', '<button id="musicBtn" aria-pressed="true">♪ 소리 켬</button>\n  <div class="note" id="note"></div>');
 top = top.replace('<div class="bar">', '<div id="modes"><button data-mode="easy">쉬움</button><button data-mode="normal">보통</button><button data-mode="hard">어려움</button><button data-mode="extreme">익스트림</button></div>\n<div class="bar">');
 const out = top + runtimeHead + data + decode + fs.readFileSync(__dirname + '/bg.js', 'utf8') + fs.readFileSync(__dirname + '/music.js', 'utf8') + fs.readFileSync(__dirname + '/game_part.js', 'utf8') + fs.readFileSync(__dirname + '/shell_bottom.html', 'utf8');
 fs.writeFileSync(__dirname + '/../index.html', out);

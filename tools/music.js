@@ -65,9 +65,10 @@ const Music = (() => {
     for (let s = 0, t = 0; t < seconds; s++, t += sd) schedule(ctx, b, cfg, s, t, st);
   }
 
-  let ctx = null, master = null, sfxOut = null, cur = null, timer = 0, step = 0, nextT = 0, mode = 'easy', want = false, st = { pos: 3 };
-  const btn = document.getElementById('musicBtn');
-  function paint(){ if (btn){ btn.setAttribute('aria-pressed', want ? 'true' : 'false'); btn.textContent = want ? '♪ 소리 켬' : '♪ 소리 끔'; } }
+  let ctx = null, master = null, sfxOut = null, cur = null, timer = 0, step = 0, nextT = 0, mode = 'easy', playing = false, st = { pos: 3 };
+  let musicOn = true, sfxOn = true;
+  try { const s = JSON.parse(localStorage.getItem('dotsSettings') || '{}'); if (s.music === false) musicOn = false; if (s.sfx === false) sfxOn = false; } catch (e) {}
+  const saveSettings = () => { try { localStorage.setItem('dotsSettings', JSON.stringify({ music: musicOn, sfx: sfxOn })); } catch (e) {} };
   function ensure(){
     if (ctx) return true;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -87,49 +88,37 @@ const Music = (() => {
     clearInterval(timer);
     if (cur) try { cur.input.disconnect(); } catch (e) {}
     cur = bus(ctx, master, CFG[mode]); step = 0; st = { pos: 3 }; nextT = ctx.currentTime + 0.1;
-    timer = setInterval(loop, 120);
+    timer = setInterval(loop, 120); playing = true;
     master.gain.cancelScheduledValues(ctx.currentTime);
     master.gain.setTargetAtTime(1.0, ctx.currentTime, 0.5);
   }
-  function start(){
-    want = true; paint();
-    try { localStorage.setItem('dotsMusic', '1'); } catch (e) {}
-    if (!ensure()) return;
-    ctx.resume(); begin();
-  }
-  function stop(){
-    want = false; paint();
-    try { localStorage.setItem('dotsMusic', '0'); } catch (e) {}
-    if (!ctx) return;
-    master.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
-    clearInterval(timer);
-  }
+  function startMusic(){ if (!musicOn || !ensure()) return; ctx.resume(); begin(); }
+  function stopMusic(){ playing = false; clearInterval(timer); if (ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 0.15); }
+  function setMusic(on){ musicOn = on; saveSettings(); on ? startMusic() : stopMusic(); }
+  function setSfx(on){ sfxOn = on; saveSettings(); }
   function setMode(m){
     mode = m;
-    if (ctx && want){
+    if (ctx && musicOn && playing){
       master.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
       clearInterval(timer);
-      setTimeout(() => { if (want) begin(); }, 450);
+      setTimeout(() => { if (musicOn) begin(); }, 450);
     }
   }
-  if (btn) btn.onclick = () => { want ? stop() : start(); };
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) ctx.suspend(); else if (want) ctx.resume();
+    if (document.hidden) ctx.suspend(); else ctx.resume();
   });
-  // 브라우저는 사용자가 한 번 누른 뒤에야 소리를 허락한다. 끈 적이 없으면 첫 터치에서 시작한다.
-  let pref = '1'; try { pref = localStorage.getItem('dotsMusic') || '1'; } catch (e) {}
-  want = pref === '1'; paint();
-  if (want){
-    const first = () => { document.removeEventListener('pointerdown', first); document.removeEventListener('keydown', first); if (want) start(); };
+  // 브라우저는 사용자가 한 번 누른 뒤에야 소리를 허락한다. 음악이 켜져 있으면 첫 터치에서 시작한다.
+  if (musicOn){
+    const first = () => { document.removeEventListener('pointerdown', first); document.removeEventListener('keydown', first); if (musicOn && !playing) startMusic(); };
     document.addEventListener('pointerdown', first); document.addEventListener('keydown', first);
   }
-  // 효과음: 소리가 켜져 있을 때만 낸다
+  // 효과음: 설정에서 켜져 있을 때만 낸다
   function sfx(fn){
-    if (!want) return;
+    if (!sfxOn) return;
     try { if (!ensure()) return; if (ctx.state === 'suspended') ctx.resume(); fn(ctx, sfxOut, ctx.currentTime); } catch (e) {}
   }
-  return { setMode, start, stop, renderSchedule, sfx };
+  return { setMode, setMusic, setSfx, get: () => ({ music: musicOn, sfx: sfxOn }), renderSchedule, sfx };
 })();
 
 const Sfx = (() => {

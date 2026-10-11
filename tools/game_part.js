@@ -12,6 +12,7 @@ if (typeof document !== 'undefined') (function(){
     if (m === MODE) return;
     unlockedBy[MODE] = unlocked; MODE = m; unlocked = unlockedBy[m];
     try { localStorage.setItem('dotsMode', m); } catch (e) {}
+    saveProgress();
     renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE); buildSelect(); load(unlocked);
   }
 
@@ -114,7 +115,7 @@ if (typeof document !== 'undefined') (function(){
     if (filled !== n * n) { $('msg').textContent = '모든 칸을 채워야 해요!'; return; }
     solved = true; fxConfetti(); Sfx.clear(); buzz([20, 50, 20, 50, 40]);
     $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 잠시 후 다음 스테이지로 넘어가요';
-    if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; saveProgress(unlocked); }
+    if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; unlockedBy[MODE] = unlocked; saveProgress(); }
     buildSelect();
     if (levelIdx + 1 < TOTAL){
       const cleared = levelIdx;
@@ -316,121 +317,40 @@ if (typeof document !== 'undefined') (function(){
     sp.className = 'rip'; sp.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - r.left - d / 2) + 'px;top:' + (e.clientY - r.top - d / 2) + 'px';
     b.appendChild(sp); setTimeout(() => sp.remove(), 520);
   });
-  // ---------------- 계정 ----------------
-  let db = null, account = null;   // account = { key, name, hash }
-  const AUTO = 'dotsAuto';
-  const enc = new TextEncoder();
-  const hex = u8 => Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
-  const keyOf = name => 'u' + hex(enc.encode(name.toLowerCase()));
-  function cheapHash(str){
-    let h1 = 0xdeadbeef, h2 = 0x41c6ce57, out = '';
-    for (let r = 0; r < 4000; r++)
-      for (let i = 0; i < str.length; i++){
-        const ch = str.charCodeAt(i);
-        h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
-      }
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-    out = (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
-    return out;
-  }
-  async function hashPw(name, pw, salt){
-    if (!(window.crypto && crypto.subtle)) return 'c' + cheapHash(salt + name.toLowerCase() + pw);
-    const k = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
-    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt + name.toLowerCase()), iterations: 100000 }, k, 256);
-    return hex(new Uint8Array(bits));
-  }
-  function saveProgress(v){
-    if (!account || !db) return;
-    db.doc('accounts/' + account.key).update({ ['prog_' + MODE]: v }).catch(() => { $('msg').textContent = '진행 저장에 실패했어요'; });
-  }
-  function setAuto(on){
+  // ---------------- 저장: 이 기기의 브라우저에 자동으로 ----------------
+  const SAVE_KEY = 'dotsProgress';
+  function loadSave(){
     try {
-      if (on && account) localStorage.setItem(AUTO, JSON.stringify({ key: account.key, hash: account.hash }));
-      else localStorage.removeItem(AUTO);
+      const o = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+      MODES.forEach(m => { unlockedBy[m] = Math.max(0, Math.min(TOTAL - 1, Math.floor(+o[m] || 0))); });
     } catch (e) {}
   }
-  function autoOn(){ try { return !!localStorage.getItem(AUTO); } catch (e) { return false; } }
-  function renderAcct(){
-    const out = !account;
-    $('guestBox').hidden = !out;
-    $('userBox').hidden = out;
-    if (!out){ $('who').textContent = account.name; $('auto').checked = autoOn(); }
-    $('guestBox').querySelector('button').disabled = !db;
-    $('note').textContent = out ? (db ? '로그아웃 상태에서는 진행이 저장되지 않아요' : '이 화면에서는 로그인을 쓸 수 없어요') : '진행이 자동으로 저장돼요';
+  function saveProgress(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(unlockedBy)); } catch (e) {} }
+
+  // ---------------- 설정 ----------------
+  function paintSwitches(){ const s = Music.get(); $('tgMusic').setAttribute('aria-pressed', String(s.music)); $('tgSfx').setAttribute('aria-pressed', String(s.sfx)); }
+  function resetAll(){
+    MODES.forEach(m => { unlockedBy[m] = 0; }); unlocked = 0;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    for (const k in hintUsed) delete hintUsed[k];
+    buildSelect(); load(0);
+    $('msg').textContent = '처음부터 다시 시작해요';
   }
-  function enter(acc, data, auto){
-    account = acc;
-    MODES.forEach(m => { unlockedBy[m] = Math.min(TOTAL - 1, +data['prog_' + m] || (m === 'extreme' ? +data.unlocked : 0) || 0); });
-    unlocked = unlockedBy[MODE];
-    setAuto(auto); renderAcct(); buildSelect(); load(unlocked);
+  function initSettings(){
+    const close = () => { $('settings').hidden = true; };
+    $('openSettings').onclick = () => { paintSwitches(); $('confirm').hidden = true; $('resetAll').hidden = false; $('settings').hidden = false; };
+    $('closeSettings').onclick = close;
+    $('settings').addEventListener('pointerdown', e => { if (e.target === $('settings')) close(); });
+    $('tgMusic').onclick = () => { Music.setMusic(!Music.get().music); paintSwitches(); };
+    $('tgSfx').onclick = () => { Music.setSfx(!Music.get().sfx); paintSwitches(); };
+    $('resetAll').onclick = () => { $('confirm').hidden = false; $('resetAll').hidden = true; };
+    $('no').onclick = () => { $('confirm').hidden = true; $('resetAll').hidden = false; };
+    $('yes').onclick = () => { resetAll(); close(); };
   }
-  function logout(){
-    account = null; setAuto(false); unlocked = 0; MODES.forEach(m => { unlockedBy[m] = 0; });
-    renderAcct(); buildSelect(); load(0);
-  }
-  let mode = 'login';
-  function setMode(m){
-    mode = m;
-    $('tabLogin').classList.toggle('on', m === 'login');
-    $('tabSignup').classList.toggle('on', m === 'signup');
-    $('pw2row').hidden = m !== 'signup';
-    $('go').textContent = m === 'login' ? '로그인' : '회원가입';
-    $('err').textContent = '';
-  }
-  async function submitAuth(e){
-    e.preventDefault();
-    const name = $('uid').value.trim(), pw = $('pw').value, err = $('err');
-    err.textContent = '';
-    if (!db){ err.textContent = '로그인을 쓸 수 없어요'; return; }
-    if (!/^[A-Za-z0-9_가-힣]{2,16}$/.test(name)){ err.textContent = '아이디는 2~16자의 글자, 숫자, _ 만 쓸 수 있어요'; return; }
-    if (pw.length < 4){ err.textContent = '비밀번호는 4자 이상이어야 해요'; return; }
-    $('go').disabled = true;
-    try {
-      const ref = db.doc('accounts/' + keyOf(name)), snap = await ref.get();
-      if (mode === 'signup'){
-        if (pw !== $('pw2').value){ err.textContent = '비밀번호가 서로 달라요'; return; }
-        if (snap.exists){ err.textContent = '이미 있는 아이디예요'; return; }
-        const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
-        const hash = await hashPw(name, pw, salt);
-        await ref.set({ name, salt, hash, unlocked: 0, created: Date.now() });
-        enter({ key: keyOf(name), name, hash }, { unlocked: 0 }, $('autoNew').checked);
-      } else {
-        const d = snap.exists && snap.data();
-        const hash = d ? await hashPw(d.name, pw, d.salt) : '';
-        if (!d || hash !== d.hash){ err.textContent = '아이디 또는 비밀번호가 맞지 않아요'; return; }
-        enter({ key: keyOf(name), name: d.name, hash }, d, $('autoNew').checked);
-      }
-      $('auth').hidden = true; $('pw').value = ''; $('pw2').value = '';
-    } catch (ex) {
-      err.textContent = '처리하지 못했어요. 잠시 뒤에 다시 시도해 주세요';
-    } finally { $('go').disabled = false; }
-  }
-  $('openAuth').onclick = () => { setMode('login'); $('auth').hidden = false; $('uid').focus(); };
-  $('closeAuth').onclick = () => { $('auth').hidden = true; };
-  $('tabLogin').onclick = () => setMode('login');
-  $('tabSignup').onclick = () => setMode('signup');
-  $('authForm').addEventListener('submit', submitAuth);
-  $('logout').onclick = logout;
-  $('auto').onchange = e => setAuto(e.target.checked);
 
   document.querySelectorAll('#modes button[data-mode]').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
+  loadSave(); unlocked = unlockedBy[MODE];
   renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
-  load(0);
-  renderAcct();
-  (async function initAuth(){
-    try {
-      db = window.claude && window.claude.use ? await window.claude.use('db') : null;
-    } catch (e) { db = null; }
-    renderAcct();
-    if (!db) return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(AUTO) || 'null');
-      if (!saved) return;
-      const snap = await db.doc('accounts/' + saved.key).get();
-      const d = snap.exists && snap.data();
-      if (d && d.hash === saved.hash) enter({ key: saved.key, name: d.name, hash: d.hash }, d, true);
-      else setAuto(false);
-    } catch (e) {}
-  })();
+  buildSelect(); load(unlocked);
+  initSettings();
 })();
