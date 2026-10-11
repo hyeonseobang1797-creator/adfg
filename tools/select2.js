@@ -3,7 +3,7 @@
 const fs = require('fs');
 const PROFILES = {
   easy:    { lo: 0.0, hi: 3.0, pow: 1.0, boss: 0.6, maxLevel: 3, maxN: 7 },
-  normal:  { lo: 2.0, hi: 4.5, pow: 1.0, boss: 0.7, maxLevel: 4, maxN: 8 },
+  normal:  { lo: 0.4, hi: 4.0, pow: 1.0, boss: 0.6, maxLevel: 4, maxN: 8 },
   hard:    { lo: 3.5, hi: 7.9, pow: 0.6, boss: 0.8, maxLevel: 7, maxN: 11 }
 };
 const PROFILE = process.argv[2];
