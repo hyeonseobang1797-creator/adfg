@@ -4,7 +4,16 @@ if (typeof document !== 'undefined') (function(){
   const ctx = cv.getContext('2d');
   const $ = id => document.getElementById(id);
   let levelIdx = 0, n, sol, pairs, endOf, paths, active = -1, moves = 0, solved = false, kind = 0;
-  let unlocked = 0;   // 로그아웃 상태에서는 저장하지 않는다
+  let unlocked = 0;   // 현재 난이도에서 연 스테이지. 로그아웃 상태에서는 저장하지 않는다
+  const unlockedBy = { easy: 0, normal: 0, hard: 0, extreme: 0 };
+  const MODES = ['easy', 'normal', 'hard', 'extreme'];
+  function renderModes(){ document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE)); }
+  function switchLevel(m){
+    if (m === MODE) return;
+    unlockedBy[MODE] = unlocked; MODE = m; unlocked = unlockedBy[m];
+    try { localStorage.setItem('dotsMode', m); } catch (e) {}
+    renderModes(); buildSelect(); load(unlocked);
+  }
 
 
   function load(idx){
@@ -224,7 +233,7 @@ if (typeof document !== 'undefined') (function(){
   }
   function saveProgress(v){
     if (!account || !db) return;
-    db.doc('accounts/' + account.key).update({ unlocked: v }).catch(() => { $('msg').textContent = '진행 저장에 실패했어요'; });
+    db.doc('accounts/' + account.key).update({ ['prog_' + MODE]: v }).catch(() => { $('msg').textContent = '진행 저장에 실패했어요'; });
   }
   function setAuto(on){
     try {
@@ -242,11 +251,13 @@ if (typeof document !== 'undefined') (function(){
     $('note').textContent = out ? (db ? '로그아웃 상태에서는 진행이 저장되지 않아요' : '이 화면에서는 로그인을 쓸 수 없어요') : '진행이 자동으로 저장돼요';
   }
   function enter(acc, data, auto){
-    account = acc; unlocked = Math.min(TOTAL - 1, +data.unlocked || 0);
+    account = acc;
+    MODES.forEach(m => { unlockedBy[m] = Math.min(TOTAL - 1, +data['prog_' + m] || (m === 'extreme' ? +data.unlocked : 0) || 0); });
+    unlocked = unlockedBy[MODE];
     setAuto(auto); renderAcct(); buildSelect(); load(unlocked);
   }
   function logout(){
-    account = null; setAuto(false); unlocked = 0;
+    account = null; setAuto(false); unlocked = 0; MODES.forEach(m => { unlockedBy[m] = 0; });
     renderAcct(); buildSelect(); load(0);
   }
   let mode = 'login';
@@ -294,6 +305,8 @@ if (typeof document !== 'undefined') (function(){
   $('logout').onclick = logout;
   $('auto').onchange = e => setAuto(e.target.checked);
 
+  document.querySelectorAll('#modes button').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
+  renderModes();
   load(0);
   renderAcct();
   (async function initAuth(){
