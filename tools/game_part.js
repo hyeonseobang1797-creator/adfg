@@ -329,6 +329,10 @@ if (typeof document !== 'undefined') (function(){
       box.appendChild(b);
     }
   }
+  const closeList = () => { $('sel').hidden = true; };
+  $('closeSel').onclick = closeList;
+  document.addEventListener('pointerdown', e => { if (!$('sel').hidden && !e.target.closest('#sel') && !e.target.closest('#pick')) closeList(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeList(); });
   $('pick').onclick = () => { const s = $('sel'); s.hidden = !s.hidden; if (!s.hidden){ buildSelect(); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); } };
   document.addEventListener('pointerdown', e => {
     const b = e.target.closest && e.target.closest('button');

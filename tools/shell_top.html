@@ -86,6 +86,8 @@
   #settings .row button{flex:1}
   #settings .hint{margin:0;font-size:12px;color:var(--muted);text-align:center}
   button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .selhead{position:sticky;top:-10px;z-index:1;margin:-10px -10px 8px;padding:10px 10px 8px;background:var(--panel);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px;border-radius:12px 12px 0 0}
+  #closeSel{min-height:0;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;border-radius:10px}
 </style>
 </head>
 <body>
@@ -117,5 +119,8 @@
 </div>
 <canvas id="c" width="520" height="520"></canvas>
 <div id="msg"></div>
-<div id="sel" hidden><div id="grid"></div></div>
+<div id="sel" hidden>
+  <div class="selhead"><span>스테이지 목록</span><button type="button" id="closeSel" aria-label="목록 닫기">✕</button></div>
+  <div id="grid"></div>
+</div>
 <script>
