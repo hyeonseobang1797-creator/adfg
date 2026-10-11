@@ -15,10 +15,7 @@ while (Date.now() < end){
   const sol = C.generate(N, 0.02 + rnd() * 0.10, kMin, kMax, Math.floor(rnd() * 2e9));
   if (!sol) continue;
   const sig = C.signature(N, sol); if (seen.has(sig)) continue; seen.add(sig);
-  const r = H.rate(N, sol, 4, 60000);
-  if (r.level >= 3){
-    kept++;
-    fs.appendFileSync(file, JSON.stringify({ n: N, k: sol.length, level: r.level, effort: r.effort, enc: enc(sol) }) + '\n');
-  }
+  kept++;
+  fs.appendFileSync(file, JSON.stringify({ n: N, k: sol.length, enc: enc(sol) }) + '\n');
 }
 console.log('n=' + N, 'tries', tries, 'kept', kept);
