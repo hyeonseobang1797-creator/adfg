@@ -4,10 +4,11 @@ const fs = require('fs');
 const PROFILES = {
   easy:    { lo: 0.0, hi: 3.0, pow: 1.0, boss: 0.6, maxLevel: 3, maxN: 7 },
   normal:  { lo: 1.0, hi: 4.9, pow: 0.9, boss: 0.7, maxLevel: 5, maxN: 9 },
-  hard:    { lo: 3.5, hi: 7.9, pow: 0.6, boss: 0.8, maxLevel: 7, maxN: 11 }
+  hard:    { lo: 3.5, hi: 7.9, pow: 0.6, boss: 0.8, maxLevel: 7, maxN: 11 },
+  extreme: { lo: 4.0, hi: 8.0, pow: 0.35, boss: 0.8, maxLevel: 7, maxN: 16 }
 };
 const PROFILE = process.argv[2];
-if (!PROFILES[PROFILE]){ console.error('usage: node tools/select2.js easy|normal|hard'); process.exit(1); }
+if (!PROFILES[PROFILE]){ console.error('usage: node tools/select2.js easy|normal|hard|extreme'); process.exit(1); }
 const PR = PROFILES[PROFILE];
 const C = require('./core');
 let pool = [];
@@ -17,7 +18,9 @@ for (const f of fs.readdirSync(__dirname + '/pool')) if (/^c\d+\.jsonl$/.test(f)
 // d*: 정답이 몇 개 안 되는 큰 판. 판이 클수록, 정답이 적을수록 어렵다고 본다
 for (const f of fs.readdirSync(__dirname + '/pool')) if (/^[db]\d+\.jsonl$/.test(f))
   fs.readFileSync(__dirname + '/pool/' + f, 'utf8').split('\n').filter(Boolean).forEach(l => { const o = JSON.parse(l); o.level = 7; o.effort = o.n * 1000 + (4 - (o.sols || 4)) * 100 + o.k * 10 + Math.random(); pool.push(o); });
-pool = pool.filter(o => o.level <= PR.maxLevel && o.n <= PR.maxN);
+// 선이 한두 개뿐인 퍼즐(점이 한 쌍만 나오는 판)은 뺀다
+const minK = n => n <= 7 ? 3 : Math.max(5, n - 3);
+pool = pool.filter(o => o.level <= PR.maxLevel && o.n <= PR.maxN && o.k >= minK(o.n));
 const byLevel = {};
 pool.forEach(o => (byLevel[o.level] = byLevel[o.level] || []).push(o));
 for (const L of Object.values(byLevel)){
