@@ -971,9 +971,8 @@ if (typeof document !== 'undefined') (function(){
       if (p.length < 2) return;
       const col = COLORS[k % COLORS.length], pts = p.map(ctr), path = new Path2D();
       path.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length - 1; i++) path.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
-      path.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-      c.lineCap = 'round'; c.lineJoin = 'round';
+      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);   // 꺾이는 곳은 각지게
+      c.lineCap = 'round'; c.lineJoin = 'miter'; c.miterLimit = 4;
       const done = isComplete(k);
       c.strokeStyle = alphaOf(col, done ? 0.3 : 0.2); c.lineWidth = s * 0.62; c.stroke(path);
       c.strokeStyle = shade(col, -0.38); c.lineWidth = s * 0.4; c.stroke(path);
@@ -981,7 +980,7 @@ if (typeof document !== 'undefined') (function(){
       c.save(); c.translate(-s * 0.02, -s * 0.03); c.strokeStyle = shade(col, 0.4); c.lineWidth = s * 0.15; c.stroke(path); c.restore();
       c.save(); c.translate(-s * 0.045, -s * 0.07); c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = s * 0.045; c.stroke(path); c.restore();
       if (done && !reduceFx){   // 이어진 선 위로 빛이 흐른다
-        c.save(); c.setLineDash([s * 0.2, s * 1.5]); c.lineDashOffset = -(t / 14) % (s * 1.7);
+        c.save(); c.lineCap = 'butt'; c.setLineDash([s * 0.2, s * 1.5]); c.lineDashOffset = -(t / 14) % (s * 1.7);
         c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = s * 0.1; c.stroke(path); c.restore();
       }
     });
