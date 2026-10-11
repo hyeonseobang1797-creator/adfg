@@ -314,15 +314,27 @@ if (typeof document !== 'undefined') (function(){
   cv.addEventListener('pointermove', e => { if (active !== -1) move(cellFromEvent(e)); });
   cv.addEventListener('pointerup', end);
   cv.addEventListener('pointercancel', end);
+  // 정답 선과 어긋난 부분이 있는지 본다 (그린 선이 정답 선의 앞부분과 같으면 맞는 선)
+  function isWrong(c){
+    const p = paths[c];
+    if (p.length < 2) return false;
+    const s = sol[c], ref = p[0] === s[0] ? s : s.slice().reverse();
+    return p.some((x, i) => x !== ref[i]);
+  }
   $('hint').onclick = () => {
     if (solved || hintsLeft() <= 0) return;
-    hintUsed[levelIdx] = (hintUsed[levelIdx] || 0) + 1;
-    const c = paths.findIndex((_, k) => !isComplete(k));
+    // 1) 이미 그은 선 중 틀린 것이 있으면 그 선을 정답으로 고친다  2) 없으면 아직 안 이은 선 하나를 그어 준다
+    let c = paths.findIndex((_, k) => isWrong(k)), fixed = c !== -1;
+    if (!fixed) c = paths.findIndex((_, k) => !isComplete(k));
     if (c === -1) return;
+    hintUsed[levelIdx] = (hintUsed[levelIdx] || 0) + 1;
     const line = sol[c].slice();
     paths[c] = line;
-    paths.forEach((p, k) => { if (k !== c){ const j = p.findIndex(x => line.includes(x)); if (j !== -1) paths[k] = p.slice(0, j); } });
+    // 정답 선이 지나가는 칸을 차지하고 있던 다른 선은 그 칸 앞에서 잘라 절대 겹치지 않게 한다
+    const on = new Set(line);
+    paths.forEach((p, k) => { if (k !== c){ const j = p.findIndex(x => on.has(x)); if (j !== -1) paths[k] = p.slice(0, j); } });
     moves++; checkWin(); draw(); updateUI();
+    if (!solved) $('msg').textContent = fixed ? '잘못 그은 선을 고쳤어요' : '선 하나를 이어 줬어요';
   };
   $('reset').onclick = () => load(levelIdx);
   $('prev').onclick = () => load(levelIdx - 1);
