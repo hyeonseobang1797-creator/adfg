@@ -208,8 +208,9 @@ if (typeof document !== 'undefined') (function(){
       if (p.length < 2) return;
       const col = COLORS[k % COLORS.length], pts = p.map(ctr), path = new Path2D();
       path.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);   // 꺾이는 곳은 각지게
-      c.lineCap = 'round'; c.lineJoin = 'miter'; c.miterLimit = 4;
+      for (let i = 1; i < pts.length - 1; i++) path.arcTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], s * 0.22);   // 꺾이는 곳은 약간만 둥글게
+      path.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      c.lineCap = 'round'; c.lineJoin = 'round';
       const done = isComplete(k);
       c.strokeStyle = alphaOf(col, done ? 0.3 : 0.2); c.lineWidth = s * 0.62; c.stroke(path);
       c.strokeStyle = shade(col, -0.38); c.lineWidth = s * 0.4; c.stroke(path);
