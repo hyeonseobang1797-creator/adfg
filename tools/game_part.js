@@ -7,12 +7,12 @@ if (typeof document !== 'undefined') (function(){
   let unlocked = 0;   // 현재 난이도에서 연 스테이지. 로그아웃 상태에서는 저장하지 않는다
   const unlockedBy = { easy: 0, normal: 0, hard: 0, extreme: 0 };
   const MODES = ['easy', 'normal', 'hard', 'extreme'];
-  function renderModes(){ document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE)); }
+  function renderModes(){ document.querySelectorAll('#modes button[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE)); }
   function switchLevel(m){
     if (m === MODE) return;
     unlockedBy[MODE] = unlocked; MODE = m; unlocked = unlockedBy[m];
     try { localStorage.setItem('dotsMode', m); } catch (e) {}
-    renderModes(); buildSelect(); load(unlocked);
+    renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE); buildSelect(); load(unlocked);
   }
 
 
@@ -305,8 +305,8 @@ if (typeof document !== 'undefined') (function(){
   $('logout').onclick = logout;
   $('auto').onchange = e => setAuto(e.target.checked);
 
-  document.querySelectorAll('#modes button').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
-  renderModes();
+  document.querySelectorAll('#modes button[data-mode]').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
+  renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
   load(0);
   renderAcct();
   (async function initAuth(){
