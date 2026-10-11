@@ -47,6 +47,12 @@
   html{overscroll-behavior:none;-webkit-text-size-adjust:100%}
   body{min-height:100%;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding-bottom:max(16px,env(safe-area-inset-bottom))}
   button{min-height:40px}
+  /* 모바일: 주소창·하단 막대에 가리지 않게 아래 여백을 크게 두고, 판이 한 화면에 들어오도록 높이에 맞춘다 */
+  [hidden]{display:none!important}
+  html{height:auto;overflow-y:auto;overscroll-behavior:auto}
+  body{min-height:100vh;min-height:100dvh;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  canvas{width:min(100%,520px,max(260px,calc(100vh - 330px)));width:min(100%,520px,max(260px,calc(100dvh - 330px)))}
+  @media (max-height:720px){.sub{display:none}}
 </style>
 </head>
 <body>
