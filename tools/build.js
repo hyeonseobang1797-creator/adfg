@@ -1,11 +1,13 @@
-// 사용법: node tools/build.js  -> tools/out/*.jsonl 을 읽어 index.html 을 만든다
+// 사용법: node tools/build.js [easy|normal|hard|extreme] -> tools/final_<난이도>.jsonl 로 dist/dots-<난이도>.html 을 만든다 (인자 없으면 extreme 을 index.html 로)
 const fs = require('fs');
+const PROF = process.argv[2] || 'extreme';
+const NAMES = { easy: '쉬운 버전', normal: '보통 버전', hard: '어려운 버전', extreme: '익스트림 버전' };
 const core = fs.readFileSync(__dirname + '/core.js', 'utf8');
 const pick = (a, b) => core.slice(core.indexOf(a), core.indexOf(b));
 const runtimeHead = pick('const COLORS', '// 격자를') ;   // COLORS, TOTAL, KINDS, stageParams, maxHints, mulberry32, neighbors
 const C = require('./core');
 const stages = new Array(C.TOTAL).fill(null);
-for (const line of fs.readFileSync(__dirname + '/final.jsonl', 'utf8').split('\n')){
+for (const line of fs.readFileSync(__dirname + '/final_' + PROF + '.jsonl', 'utf8').split('\n')){
   if (!line) continue;
   const o = JSON.parse(line); stages[o.idx] = o.n + '|' + o.enc;
 }
@@ -28,5 +30,7 @@ function makeLevel(idx){
 
 `;
 const out = fs.readFileSync(__dirname + '/shell_top.html', 'utf8') + runtimeHead + data + decode + fs.readFileSync(__dirname + '/game_part.js', 'utf8') + fs.readFileSync(__dirname + '/shell_bottom.html', 'utf8');
-fs.writeFileSync(__dirname + '/../index.html', out);
+let res = out.replace('<title>점 잇기 퍼즐</title>', '<title>점 잇기 퍼즐 - ' + NAMES[PROF] + '</title>').replace(/dotsLocalDb/g, 'dotsLocalDb_' + PROF).replace(/'dotsAuto'/g, "'dotsAuto_" + PROF + "'");
+if (process.argv[2]){ fs.mkdirSync(__dirname + '/../dist', { recursive: true }); fs.writeFileSync(__dirname + '/../dist/dots-' + PROF + '.html', res); }
+else fs.writeFileSync(__dirname + '/../index.html', out);
 console.log('built, bytes', out.length);

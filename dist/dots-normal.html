@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#10131c">
+<title>점 잇기 퍼즐 - 보통 버전</title>
+<style>
+  /* Layout: centered single-column game board with a compact status bar above */
+  :root{--bg:#10131c;--panel:#1a1f2e;--fg:#e8ecf5;--muted:#8791a8;--line:#2a3147;--accent:#5b8cff;--ok:#7dffb0;color-scheme:dark}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;padding-inline:16px;padding-block:16px;display:flex;flex-direction:column;align-items:center;gap:12px;-webkit-user-select:none;user-select:none}
+  h1{margin:4px 0 0;font-size:22px;text-wrap:balance}
+  .sub{color:var(--muted);font-size:13px;margin:0;text-align:center;max-width:46ch}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:15px;cursor:pointer;font-family:inherit}
+  button:hover{border-color:var(--accent)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .stat{background:var(--panel);border-radius:10px;padding:8px 14px;font-size:14px;text-align:center;font-variant-numeric:tabular-nums}
+  canvas{width:min(100%,520px);aspect-ratio:1;touch-action:none;border-radius:14px;background:#0b0e15}
+  #msg{min-height:24px;font-weight:600;color:var(--ok)}
+  button:disabled{opacity:.35;cursor:default}
+  button.go{border-color:var(--ok);color:var(--ok);animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 4px #7dffb033}}
+  @media (prefers-reduced-motion:reduce){button.go{animation:none}}
+  .chip{border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700}
+  .chip.k0,#grid .k0{--c:#3ddc84}.chip.k1,#grid .k1{--c:#ffd23f}.chip.k2,#grid .k2{--c:#ff4d4d}.chip.k3,#grid .k3{--c:#4dd2ff}
+  .chip{background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
+  #sel{width:min(100%,520px);max-height:260px;overflow-y:auto;background:var(--panel);border-radius:12px;padding:10px}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px}
+  #grid button{padding:8px 0;font-size:13px;font-variant-numeric:tabular-nums;border-color:color-mix(in srgb,var(--c) 40%,var(--line))}
+  #grid button.done{background:color-mix(in srgb,var(--c) 16%,var(--panel))}
+  #grid button.cur{outline:2px solid var(--fg)}
+  .acct{display:flex;flex-direction:column;align-items:center;gap:6px}
+  #userBox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+  .note{color:var(--muted);font-size:12px}
+  .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  #auth{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+  #auth[hidden]{display:none}
+  #authForm{background:var(--panel);border-radius:14px;padding:18px;width:min(100%,340px);display:flex;flex-direction:column;gap:8px}
+  #authForm label{font-size:13px;color:var(--muted)}
+  #authForm input[type=text],#authForm input[type=password],#uid{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:15px;font-family:inherit}
+  .tabs,.row{display:flex;gap:8px}
+  .tabs button{flex:1}.tabs button.on{border-color:var(--accent);color:var(--accent)}
+  .row .primary{flex:1;background:var(--accent);border-color:var(--accent);color:#fff}
+  #err{min-height:18px;font-size:13px;color:#ff7a7a}
+  html{overscroll-behavior:none;-webkit-text-size-adjust:100%}
+  body{min-height:100%;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  button{min-height:40px}
+</style>
+</head>
+<body>
+<h1>점 잇기 퍼즐</h1>
+<p class="sub">같은 색 점끼리 선으로 연결하고, 판의 모든 칸을 채우세요. 선은 서로 겹칠 수 없어요.</p>
+<div class="acct">
+  <div id="guestBox"><button id="openAuth">로그인 / 회원가입</button></div>
+  <div id="userBox" hidden><b id="who"></b><label class="chk"><input type="checkbox" id="auto"> 자동 로그인</label><button id="logout">로그아웃</button></div>
+  <div class="note" id="note"></div>
+</div>
+<div id="auth" hidden>
+  <form id="authForm" autocomplete="off">
+    <div class="tabs"><button type="button" id="tabLogin" class="on">로그인</button><button type="button" id="tabSignup">회원가입</button></div>
+    <label for="uid">아이디</label><input id="uid" maxlength="16" autocomplete="username">
+    <label for="pw">비밀번호</label><input id="pw" type="password" autocomplete="current-password">
+    <div id="pw2row" hidden><label for="pw2">비밀번호 확인</label><input id="pw2" type="password" autocomplete="new-password"></div>
+    <label class="chk"><input type="checkbox" id="autoNew" checked> 자동 로그인</label>
+    <div id="err" role="alert"></div>
+    <div class="row"><button type="submit" id="go" class="primary">로그인</button><button type="button" id="closeAuth">닫기</button></div>
+  </form>
+</div>
+<div class="bar">
+  <button id="prev" aria-label="이전 스테이지">◀</button>
+  <div class="stat" id="lvl">스테이지 1</div><div class="chip k0" id="diff" hidden></div>
+  <button id="next" aria-label="다음 스테이지">▶</button>
+  <div class="stat" id="flows">연결 0/0</div>
+  <div class="stat" id="fill">채움 0%</div>
+  <button id="hint">힌트</button>
+  <button id="reset">다시</button>
+  <button id="pick">목록</button>
+</div>
+<canvas id="c" width="520" height="520"></canvas>
+<div id="msg"></div>
+<div id="sel" hidden><div id="grid"></div></div>
+<script>
+// 이 파일을 단독으로 열면 계정은 이 기기의 브라우저에만 저장된다
+(function(){
+  if (window.claude && window.claude.use) return;
+  var KEY = 'dotsLocalDb_normal';
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
+  function save(o){ localStorage.setItem(KEY, JSON.stringify(o)); }
+  var db = { doc: function(p){ return {
+    get: async function(){ var d = load()[p]; return { exists: !!d, data: function(){ return d; } }; },
+    set: async function(x){ var o = load(); o[p] = x; save(o); },
+    update: async function(x){ var o = load(); o[p] = Object.assign({}, o[p], x); save(o); }
+  }; } };
+  window.claude = { use: async function(n){ return n === 'db' ? db : null; } };
+})();
+</script>
+<script>
+const COLORS = ['#ff4d4d','#3fa9ff','#ffd23f','#3ddc84','#ff8c1a','#c26bff','#00e5d0','#ff6bb5','#a0a8ff','#b5651d','#c8ff3f','#ffffff','#7a5cff','#ff9e9e','#2f8f5b','#d4a5ff','#4d6bff','#ffb36b','#6bffd8','#e04dff','#9aff4d','#ff4d9a','#4dd2ff','#d9b38c'];
+const TOTAL = 480;
+const KINDS = ['', '어려움', '하드', '쉬움'];
+
+// 스테이지가 올라갈수록 조금씩 계속 어려워진다: 판이 커지고, 선이 길고 구불해지고, 색이 늘어난다
+function stageParams(i){
+  const d = i / (TOTAL - 1), no = i + 1;
+  // 1~60번은 쉬움: 4×4, 5×5, 6×6 중 무작위. 이후는 갈수록 어려워진다.
+  // 10스테이지마다 어려움, 300스테이지부터는 어려움과 하드가 번갈아 나온다.
+  let kind = 0;
+  if (no % 10 === 0) kind = no >= 300 && (no / 10) % 2 === 0 ? 2 : 1;
+  const base = no <= 60 ? 4 + Math.floor(mulberry32(no * 31 + 5)() * 3) : 6 + Math.min(4, Math.floor((no - 61) / 440 * 5));
+  return {
+    kind, d,
+    n: Math.min(12, base + [0, 1, 2, 0][kind]),
+    pBreak: 0.30 - 0.22 * d - [0, 0.04, 0.07, 0][kind],
+    lo: 0.7, hi: 1.0 + 0.3 * d
+  };
+}
+function maxHints(kind){ return kind === 1 || kind === 2 ? 3 : 2; }
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function neighbors(i, n){
+  const r = Math.floor(i / n), c = i % n, out = [];
+  if (r > 0) out.push(i - n);
+  if (r < n - 1) out.push(i + n);
+  if (c > 0) out.push(i - 1);
+  if (c < n - 1) out.push(i + 1);
+  return out;
+}
+
+const STAGES = ["5|4:LL,24:UUULL,13:LLUULDDD,20:RUR,22:RU","5|0:RRRRD,14:DDLLURU,8:LDL,6:LDDR,20:R","5|24:UUUULDD,2:LLDR,7:DLLDR,20:RRU,18:D","5|4:DD,19:DLLLLUUUURD,11:DRR,13:LUU,3:D","5|24:UU,23:UL,22:LLURULUURDR,2:RRDLDL","5|0:RRRRDL,14:DDL,18:UL,7:LLDRD,17:DLLU","5|20:RRRRUU,0:RRRRDL,7:DR,18:LLLU,5:RD","5|20:UUUUR,21:RRRUUUULLDR,6:DDRR,13:L","5|20:RRRRU,14:UULDD,18:LLLUUU,2:LDD,12:U","6|30:UU,5:LLLLLD,12:RU,19:DDR,8:RRRDDDDLLU,26:URRD,16:LL","5|0:RR,4:LD,9:DLLULL,11:LDDRURDRR,19:L","5|20:UUU,0:RRRRDDDDLU,22:LUUURR,13:LD","5|0:DDDDRU,11:UURRRD,22:UU,7:RDRDL,24:L","5|24:LLLLU,10:UURD,16:UR,17:RRULU,7:URRD","5|4:LLLLD,10:DDRU,11:URRR,22:UURRDD,23:U","5|24:LLLLU,16:RRRU,10:RR,13:URULLDL,1:LD","5|24:UUUUL,20:RRRU,0:DDDR,17:UR,11:UURDR","5|0:DDDD,21:UUUURRRD,7:DD,22:RRUU,18:UU","5|0:RRRRDLLL,5:DRR,20:UR,21:RURU,14:DDL","6|5:LLLLLDD,30:UURRU,13:URRDDDLLD,32:RRRU,28:URU,11:LD","5|4:LLLLD,9:DDDLU,8:DLUL,17:DLLUU,16:U","5|24:LL,21:LU,4:LLLLD,10:RURRRDDL,13:LDL","5|24:UU,4:DL,3:LDLULDDDDR,22:RUULDLU","5|4:LLLLDDDDRRRRU,6:DD,17:RUR,12:URR","5|24:LLLLUUUURR,19:UUULD,16:RRU,11:RUL","5|20:RRRRU,18:LLLU,14:LLLULURR,7:RURD","5|4:LL,0:RDLDDDRR,11:DRR,23:RU,12:URRDL","5|24:UUUUL,0:RRDR,5:RDLDD,16:DR,23:ULUR","5|4:DDDDLU,22:LLUUUURDRU,3:DDLD,11:D","5|20:UU,0:DRUR,11:DDRRRULL,3:RDD,13:LUR","5|20:UUUURR,21:RRRUU,6:DDRR,4:LDR,7:DR","5|20:UU,0:DRURDR,3:RDDDDLLLUURD,18:U","5|0:RR,20:RRRRU,5:RRRURDDLDL,12:LLDR","5|24:LL,4:DDDLLLDLUU,11:RR,8:ULDLLUR","5|0:DDR,4:DDDDL,22:LLUR,1:DRURDDLDR","5|20:RRRR,15:RRRRU,4:DL,3:LLL,13:LULLDR","6|0:RRRRRDDDDDL,30:UUUUR,8:RRD,22:DLDLLUUU,26:URUL","5|20:RRRRUL,4:DDL,17:LLUUUR,3:DLU,6:DR","5|4:DD,0:DDDDRRR,24:ULLLUUUR,3:DD,12:U","6|35:LLLLLUU,5:DDDDL,0:DDRUURRRDDDLDL,25:URU,8:RD","5|4:LDRDDDLUULU,2:LLDRD,10:DDRR,16:R","5|4:DDDDL,0:DDDDRRURU,16:UUUR,3:DLD","5|24:LURUUULDDLU,2:LLD,6:DLDDRR,16:R","5|24:LLLLURR,10:UU,19:LURUULDL,12:LU,1:R","5|24:LLL,20:URRRR,0:DDRR,13:RUULDLULD","5|0:RR,4:LDRDLLULL,11:LDD,21:URDRRUL","5|24:UUUULLL,0:DD,8:DDDLLLUR,17:UU,11:U","5|24:UULDD,9:ULDLUL,0:DRDR,10:DDR,22:UL","5|4:DDDD,0:DDDDRU,23:LU,18:UUULL,6:DRU","6|35:UUUUULD,16:DDDLLLL,27:UUUUL,26:LLU,19:RUULDLU,0:R","5|4:LLLLDR,20:RR,7:RR,24:LUR,14:LLDLLUR","5|24:LL,19:LL,4:LLLLD,21:LUURD,6:RDRRUL","6|35:LLLLLURR,18:UUURRR,29:LLULLUU,23:LU,17:UULDLD,8:D","5|4:LLLLDRR,10:DDR,11:DRD,12:RU,9:DDDLU","5|4:DDL,20:UUUUR,21:UUUR,12:DDRRUL,2:RD","5|0:RRRRD,24:LLLLU,8:LLLDRD,17:RR,12:RR","5|0:DD,4:LLLDDDLDRR,7:RRDL,12:DRDRU","5|20:RRRRUL,15:RR,14:LLLLUURR,6:RRU,9:U","5|20:RRRRU,18:LLLUU,0:RDD,4:DD,13:LUURD","5|0:DDDDRRR,24:UUL,18:LL,12:LUURDRRUL","6|0:DDDDDRRRRRUUUUULD,3:LLDD,19:DRRRUUL,9:LDDR","5|4:LD,9:DD,24:LUULUU,22:ULDLUURUULD","6|0:RRRRRDD,35:UULUULL,28:DLL,15:DDL,14:DLDDLUUUU,7:D","5|20:RR,15:UUUR,6:DDRRDRUU,9:ULLDRDL","5|24:UUUULL,1:LDR,8:LDRD,23:LULDLUUR","5|20:UUUURRD,6:DDDRRRU,17:URD,14:UULD","5|0:RRRRD,5:RRRDRDDLU,20:UURR,16:DRU","6|30:RRRRR,24:RRRRRUU,18:RRR,22:ULUU,2:DDLLU,0:RD,4:DRU","5|4:DDDDLUU,0:DD,22:LLURURD,3:DLULD","5|24:LLLLUR,0:DDRRDRRULURUL,6:RUL","5|24:LLLLU,4:LLLLDDRU,16:RUURRDD,13:D","5|24:UU,23:UUURUL,22:UUUULLD,6:DLDDRU","5|4:DDDD,3:LL,0:DDD,20:RRRUUULLD,12:DL","5|0:DDDDR,22:RRULLLU,14:UULD,13:LUULD","5|0:RRRRDLL,14:DDL,20:UUU,6:DDDRUR,13:L","5|24:UUUULD,2:DL,1:LDDR,15:DRURURDDL","5|0:DD,1:RRRDDD,24:LUUUL,6:DRDDLULD","6|35:LLLLLUUUUURRR,25:RRRR,4:RDDDLL,20:LU,7:RDRURD","5|24:UUUU,3:LLLDD,8:DD,23:LLLURRUU,11:U","5|20:UUUUR,24:UU,6:DDDRURD,12:UURRDLD","5|4:LLLL,20:UU,5:RDD,21:RUUUR,9:DLDDRU","6|35:LLLLLUUUU,0:RRR,25:UUURRRU,5:DDDDLLL,20:UR,16:DL","5|24:UUUULDD,18:DLUUL,0:RR,7:LLD,21:ULD","5|0:DDD,20:RRUL,11:RUULD,23:RULURUULD","5|20:RRRRU,15:RRRURUUL,8:LDLLUU,2:LD","6|35:LLLLLUUU,6:URR,25:RRRR,7:RDL,19:RRR,23:UUULLD,15:RU","5|24:UUU,4:LDDDDL,17:LDLUUUU,12:LUURD","5|0:RRRRD,5:DDDRRRRUUL,18:LLUU,12:UR","5|24:UUUULLLLDDDD,21:RR,6:RRDDL,16:UR","5|24:UU,4:DLULDDRDDLULD,20:UUR,6:LUR","6|35:LLLLLU,5:LL,29:UUULL,18:UUU,25:RRRUU,21:UL,20:LUURUL","6|35:UUUUULLLLLD,34:UUUULLL,33:LLLUR,27:LURU,14:LLDR","5|4:LL,24:LL,0:RDL,7:RRDDLL,13:LLLDRDL","5|20:RRR,24:ULLUR,14:UUL,8:LU,1:LDRDLDR","5|20:UURDDRU,23:RUL,4:DDLL,5:URDRURD","5|0:DDD,20:RRRRUU,1:DDDRRU,12:UURDRU","6|5:LLLLLDD,7:DR,8:RD,10:RDLDRD,35:LULDLLL,21:LDLLUR","6|35:LLLLLURR,18:UUUR,29:UU,11:ULLLDLD,19:RURUR,16:DD,21:D","6|35:LLL,30:RULURRDR,28:RULLULLLUU,17:LURULLDL,2:LD","5|4:LLL,0:DD,24:UUULLLD,12:RDDLULLDR","6|5:DDD,4:LLD,35:ULDL,32:LLUUURULUR,9:RDD,15:LDRDLLU","6|35:LLL,30:RULUUUUR,19:UURUR,26:UURUR,4:RDDLDR,21:DRR","6|0:RRRRRDDDDD,30:RRR,34:UUUUL,6:RRDRDD,26:ULUL,25:LU","6|5:DDD,4:DD,29:DLUULD,33:LLLUUUUUR,2:RDDLULDD,20:DL","5|20:RRR,24:UUU,4:LDDDLLL,12:UULLDR,10:R","5|4:DDDDLLLLU,3:LLL,10:URRRDDL,12:LD","5|4:DDDDLLURU,0:DDDDR,16:URUR,6:URR","5|4:DDDDLL,18:LLDLUURRRU,3:LD,5:URD","5|4:DDDD,3:DLULL,5:RDLDDRURU,22:RUU","6|5:LLLD,11:LLD,30:UUUUU,1:DDRDLDDRURURU,33:RURD,23:U","5|20:UUU,0:RR,6:DDDR,17:UURU,4:DDLDDRU","5|0:DDDDRRRRULL,16:UUUR,3:RDD,13:ULD","5|20:UUUU,1:RRRDL,6:RDLDD,17:DRRULUR","6|5:DDDDD,34:UUUUUL,33:UUUUL,2:LLDRDLDD,14:DLD,30:RRU","6|30:UUUUURRRRRD,35:UUULULLLDDD,31:RR,34:ULLUU,15:DR","5|20:RRRRUL,4:LLLLD,6:RRD,9:D,10:DRRUL","5|20:UUU,0:RRRRD,6:DDDR,8:LDDRURDDL","6|35:UUUUUL,0:RRRDRD,30:UUUURRDRDRDDLUL,20:LU,32:LU","6|0:DD,35:LLLLL,18:DRR,19:RRDR,29:ULURUU,4:DLU,15:LLUURD","6|0:DDDDD,35:UUUUULLLLDDDRU,8:RRD,15:DRDD,33:ULDLU","5|20:UUUU,21:UUU,1:RDD,24:UULDDLU,8:URD","6|30:RRRRRUU,17:UUL,10:DDDLLLLUU,3:DL,2:LLDRDDR,14:RD","6|5:LL,11:DDDD,10:DDDDLLLL,24:UUU,0:RDDDDRRUU,9:LU,20:U","6|35:LL,32:LLURRRR,29:UUUULLLLLDR,22:UU,9:LDRD,20:LU,12:D","5|20:UUU,0:RRRR,6:DDDRRRUL,17:UURR,14:L","5|24:UU,0:DDDDRRR,18:LLUUUR,4:LDR,7:DR","5|24:UU,4:DLULDDRDDL,17:LDL,15:URU,5:UR","6|5:LLLLLDDDDDRU,7:DDR,11:LLLD,35:UUUL,15:DRDDLULD","5|0:RR,4:LDRDLLULLDDDRRRRU,18:LLU","6|30:UU,12:UURRR,7:RRRRUL,13:DDDRU,14:DRURRDLDRDLLU","6|0:RRR,6:RRRD,12:RRDR,5:LD,11:DLDRDDLULDLULDLUUR","6|0:DDDDDRRR,35:LURUUUULLLLD,10:DDLDL,25:URUL,8:RD","5|24:UUUULDDD,23:LLL,15:UUURR,7:LDD,12:D","5|0:DRURRR,10:DDR,16:URURRDLD,19:DL,22:U","5|24:UU,9:ULLLLD,6:RRDDDLLL,12:DLLUR","6|30:UUU,0:DRURDD,13:DDDR,26:UR,33:URDRUULUR,15:UURRDL","6|0:RRRRRDDD,35:ULDLUURU,10:LDLULL,12:RDRDDLU,18:DD","5|0:DDDDRRRRUUUU,18:LLUUU,12:RUU,7:U","5|20:UUU,0:RRR,4:DLLLDDDRU,12:RRDL,24:L","6|30:UUUUURRR,31:UUUUR,14:RU,5:LDRDLDRDDLULDLUUR","5|4:DD,19:DLUUUULLLD,6:RDDDL,20:UR,10:R","5|24:LLLLURR,18:RUUULDDLU,2:LLDD,6:D","6|30:UUUUURD,35:UUUUUL,13:RUURDRD,15:DRD,34:LUL,20:LDDR","5|4:DDDDLL,18:LLLDR,10:RRRUULD,6:ULD","6|30:RRRR,35:ULLLLLUUUURRRRR,11:DDLLLLU,7:RDRR,9:R","6|0:DDR,30:RRRRRU,5:DDDLDLLL,24:URRRURUULDLD,2:LD","6|30:RRR,24:RRRU,35:LURULU,17:UULDLULLLDDDRRUR,8:LD","5|24:UUUU,3:DDDD,0:RRDDDDLLU,16:ULUR","5|4:DDDDL,18:UUUL,7:DDDLL,16:LURUU,5:U","6|5:LLL,35:LL,0:RDLDDDDRRULUURDRDRRU,8:RDRD,10:RD","5|4:DDDD,23:LLLURUL,3:DDDL,12:UULL,6:L","5|24:LLLLUUUU,16:RRRUUU,1:DDRRUU,2:D","6|0:DRURDRURRD,10:DRDDDLLLLLU,12:DRUR,15:DLDL,22:DL","5|24:LL,0:DDDDRU,1:RRRDDDLLU,13:ULLD","6|30:RRRR,35:UUU,24:UUUURR,25:RRRUUU,11:ULLDDDLLUU,8:D","6|30:RRR,35:LURULU,17:UULDLULLLDRRDRDD,20:DL,24:UU,19:U","5|24:UU,4:DLULDDRDDL,17:LDLU,10:RUULD","5|0:DDDDRRRRUULDLLU,12:UU,6:U,9:ULD","5|24:UUUULD,2:LLDR,7:DRDDLULLUR,21:L","6|5:DDDDDLLLLL,28:LLU,25:LURUL,21:RUUULLLL,6:RRDRU","6|35:LLLL,30:UUUUURD,5:DDDDL,22:UUULLD,9:DDDL,25:UURD","6|30:UUUUURRRR,5:DDDDDLU,10:DDLDDLLU,26:ULU,7:RDRU","6|5:DDDDD,4:DDDD,34:LUUUUULLLDDDDD,8:LD,14:DLD,31:RU","5|24:UUU,4:LDDDDLLL,17:UUULLDD,6:DDL","6|5:LLLL,0:DRRRRRD,16:LLL,12:DRRRRRDDL,28:LDLULLDR","6|0:RRR,30:RR,35:UUUUUL,34:LURU,10:DLDLDLLURURUR,12:UR","6|35:LLLLLU,5:LLLD,9:RR,25:RRRRUUL,22:LULDLLURULUR","5|24:LL,0:DDDDRURRR,14:LLLUUR,7:RURD","6|30:RRRRRUUUUUL,3:LLLDDDDRRRRU,21:LLUUR,14:RURD","6|30:UUUUURRRRRDDDDDL,7:DDDD,33:LUUUURRD,15:DDRU","5|0:RRRRDLL,14:DDL,5:DDDRRULUU,12:RD","6|5:LLLL,0:DDR,7:RRRRDDDDL,30:RRRURUUL,21:LU,26:LLUR","6|30:RRRRRU,5:LLLLLDR,11:DDLDLLLLU,12:RDRRURU,9:LD","6|0:RRRR,5:DDDDDLLL,10:LLLLD,28:UULLLDLDDRUR,20:RD","6|35:LLLL,30:URRRRRUU,22:UURUL,21:LLLUUURRR,9:DL,8:LD","5|0:RRRRDL,20:UUURRDL,21:RUL,23:RULUR","6|35:UUUUU,4:DDDDD,0:DD,33:UUUUULL,30:UURUU,8:DDDDLU","6|0:DDDDDRRRRRUUUU,5:LDDDDL,26:LUUUURRD,8:DD,21:U","6|30:UUUU,0:RDDDDD,5:DDDDDLLLU,28:LURUUU,20:UR,8:URD","6|30:UU,35:LLLLUUULUURDRURDDL,5:LD,11:DLDRDLLL,21:L","5|4:DD,24:ULDL,20:RULURRD,13:UULDLLUR","6|0:DD,18:RU,7:URRRR,11:LLLDDDDLU,24:D,33:RRUL,27:UURRDL","6|0:DDDDDRRR,25:UUUUR,26:UUURURRDLDRD,15:DDRU,29:DL","6|0:RRRR,5:DD,30:RRRRRU,23:LDLLLLUUUR,16:ULLDRDL,13:D","6|0:RRRRRD,35:UUULULLLLD,13:RRDRD,34:LU,20:DD,30:RUULD","6|5:LLLLLDDD,35:LLL,7:DDDLDR,26:UUURRR,29:LLUUR,22:RU","6|30:UUUU,0:RRRRRD,7:DDDDR,26:UUURRDRDDD,15:DRDD,27:D","6|0:RRD,3:DRRUL,35:LLL,6:RDLDDDRUURU,26:RUURR,22:RDL","6|0:DDDDDRRRRRUU,28:LLLUUUUR,20:RRUU,17:UULLDL,15:L","6|35:LLL,29:LLL,23:LLLLDDLUUU,13:RULLURRRD,15:RRUULD","6|0:DD,30:RRRRRU,24:URDR,27:RURULLDLULUURDRURR,11:L","6|0:DDDDDR,25:UUUURD,14:DDDRRRUL,27:UUUUR,5:DL,16:RDL","5|4:LLLLD,24:UUUL,7:LDL,12:RDDLULLDR","5|24:LLLLUR,10:UURR,11:UR,12:DRRULUURD","6|35:UUUUULLLLLD,12:DDDRRRRUUU,10:LLLDDDRRU,15:LD","5|4:LLLLDR,10:RRURRDLDDRU,20:UR,21:RU","5|0:DD,24:LLL,20:URURDRRULURULLD,1:D","5|20:UU,4:LLLLDRDD,21:RU,12:URRDLDDRU","5|20:RRRRULL,14:UULDDL,16:LURUR,5:URR","6|30:UUU,35:UUUUULD,31:RRR,6:URDDDDRRRUULD,20:UUURD","5|4:LLL,0:DR,24:UUUL,7:DRDDLULDLUUR","5|0:DDDDR,16:RDRRULUR,12:LUURDRU,4:D","5|0:DDDDR,16:URDDRRUUUULLLD,7:RDD","5|24:UUUULL,0:RDLDRDDLU,8:LDRDDLU","6|0:DD,1:RR,35:LLLLLU,18:RDRRRRUUUULDD,22:LLU,13:URRD","5|24:UUUULLLLDD,6:RRDDDLU,12:LDLDR","5|20:URDR,10:UURRR,4:DDDDLULUR,11:URR","6|0:RRRRRD,35:LL,6:RRRRDRDD,12:DDDRRULUURRDL,27:RU","5|20:RR,24:LURULLDLLURULUR,7:URRDL","6|30:RRRRRULUR,27:LLLU,17:LLDLLURU,12:UURD,2:RDRRUL","6|5:LLLLLDDDDDRRRRR,29:UUULLLLD,28:LLLU,22:ULLDR","5|20:RR,0:RRRRDLLDDLLUR,5:R,13:DDRUU","6|35:LLLLLUUUUURRRR,5:DDDDLLL,25:UUURRRDDL,15:LD","5|4:LLLLDDDDRRU,16:UURRRDDDL,12:RD","5|4:LLLLD,6:DLD,20:RURD,12:URRDLDRDL","6|0:RRRR,5:DLLLLLD,18:RUR,24:DR,25:RD,20:RURRDLDRDLLU","5|4:LLLLDDRURRRDDDL,13:DLU,22:LU,15:D","6|0:DDDDD,35:LLL,31:UU,26:RRRUL,20:RU,14:LUURDRURDD,17:UU","5|20:UU,4:LLL,0:DRRDLDDRURDRUUL,9:L","6|30:UU,12:UURD,2:RRRDDDDDLLLLU,26:RRUUULL,15:DLLUR","6|5:LL,11:LLLULLDRDLDRDLDR,17:DD,35:LUUULL,20:RDDLU","5|4:LLLLDR,20:RRRRU,18:LLLUR,14:ULLDR","5|20:RRRR,19:LLLLUUU,1:DDRRRUUL,2:DR","5|4:LL,1:LDDDDRRULUURDRRUL,23:RUL","5|24:UU,23:LLLURRRU,10:UURRRRDLLD,11:U","5|0:RDLDRDLDR,2:RRDD,19:DLLURULUR","6|35:UUUUUL,0:DDDDDRRRR,1:DDDDRRRU,20:RULUURDRD","6|35:UUUUULLLLLDDDDDRU,34:UUUULL,7:DDRUR,21:DDLU","6|35:LLLLLUUUUU,25:RRRRUUU,5:LDDDL,3:DDL,20:LUUURD","7|42:UUUUUURRR,8:RRRURRDLD,20:DLLULLLDDD,43:RRRRRUULL,40:LL,37:URUL","5|4:DDDDLUUUUL,7:LULDD,22:LLURR,12:L","5|24:UUUULD,2:LLD,6:RDRDDLULDLUUR","5|24:LURULURULLD,20:UUUURD,22:LUURD","5|20:RR,24:LURU,13:LDLLURUL,0:RRDRRUL","6|35:LLLLLUUUUURRRR,5:DLLLLDD,25:RUUR,17:LDRDLLU","5|20:UUUUR,6:RURR,9:LDRDDLULDLUUR","5|0:DDDDRRRRUUL,18:LLUUU,12:UURRDL","6|5:LLLL,0:DRRRRRDDDDLL,30:UUURRR,16:DDL,21:LLDDRU","6|30:RRRRRUU,0:RRRRRD,17:LUL,22:DL,21:ULULLDRDRDLLU","6|5:LL,11:LLL,2:LLDRDLD,35:UUULLLD,19:DLDRRURDRUUL","5|20:UUUURRDLDDD,3:RDL,24:LLU,12:RRDL","6|30:RRRRRUUUUULLLLLDD,24:URDRRRUUU,7:DRU,9:DDL","6|5:DDDDDL,0:DDDDDR,25:UUUURRR,10:LLDDD,32:RURU,21:UR","5|4:LL,0:RDLDRRURRDLDR,24:LLULL,21:L","5|20:RRRRUU,18:LLLUUU,1:DDRRU,7:URRD","5|0:DD,20:URDR,11:UURRRD,23:RUULDLUUR","6|0:DDDDDRRRRRU,23:UUUL,3:LLDDD,25:RRRUUULLD,15:DL","6|30:RRRRRUUUUULLLD,28:LLL,24:URRRRU,10:LD,14:LLUURD","6|30:RRRRRUL,5:DDDLLDL,24:RURU,18:URULUR,2:DRURDDL","7|0:RRRRR,6:DLLLLLLD,48:UU,42:UU,21:RURRRRRDLDDDL,25:LLDLDDRURD,31:RD","5|20:UUUURD,2:DDLDDRURDRU,14:LUURD","5|24:LLLLUUUU,1:DDDRRRU,4:DLULDDR","6|5:DDDDDLLL,30:RULURR,26:RRU,21:URUULDLU,14:LLUURD","6|0:DDDDDRRR,35:LURULLDLLU,20:ULUURD,17:UU,15:RUULD","6|30:UUUUURR,31:RRRRUUUUULLDRD,22:DLLLU,7:RDL,20:RU","5|20:RRRRUL,14:LLDLLURURULLD,8:RUL","6|35:UUUUULLLDR,10:DDDDL,1:LDRDLDDDRRURUUL,20:LD","6|35:LL,30:RRURRRU,24:RULUUURRRRRDL,17:LDLLURULLD","5|20:RR,24:LURULLDLL,10:RULUR,2:DRRUL","6|5:LLLLLD,11:LLLLDLDDDRU,19:RURRRD,26:DRRRULLUR","6|35:LLLLLU,18:UUURD,29:LL,5:DDDL,2:DRURDDLDLULDDR","5|0:RRRRDD,19:DLLLLU,8:LDRDLLULUR","6|5:LLLLLDRDLDDDR,8:RRRDDD,35:LUU,16:LLDRDDLULU","5|24:UUUU,0:RRRDDDDLU,12:ULLDRDLDR","5|24:LLLL,19:UU,4:LDDDLLL,10:RRUUL,6:LU","6|30:UUUUUR,5:LL,2:DLD,14:DLDDRURDRRULUR,21:UURR,17:L","6|35:LLLLLUUUUUR,29:UUUULLLDLDD,25:RRRUUUL,20:URD","6|30:RRRRRUUUUULLL,28:UUU,27:LLLUUU,0:RDDDRRU,9:LD","6|0:RRRRR,11:LLLLLDD,30:URDRU,13:DRURRRDL,21:DDRRUL","6|5:LLLLLD,12:DR,13:URRRRDDD,35:LUUULLD,21:DDLULLDR","6|5:DDDDDLLLLLUR,28:UU,26:RUU,10:ULDLULLDRDLDRRU","5|24:LLLL,0:DDDRRRRULURUL,12:LUU,7:U","5|20:RR,24:LURU,13:LDLLURULURRD,3:RDL","6|30:UU,31:UUULUURDRURRR,14:DDDRRRUUU,11:LLDRD,21:DR","6|5:LL,30:RRRRRUUU,11:LL,24:RRRRUU,21:ULDLLURUURD,6:U","6|30:RRRRRUUU,5:DLULLLLD,16:DDLL,24:RUL,12:RURRDLDR","6|5:DDDDDLLLLLUR,26:RRUU,10:UL,9:DDLLLU,13:RUULDLU","6|0:RRRRRDDDDD,6:RRRRDD,34:ULDLLLU,26:LULURRDRU","6|0:RRRRRDDDDD,30:UU,34:UU,10:DLULLLD,14:LDDDRRU,21:LD","6|5:DDDDDLLLLLU,25:ULUU,0:RDDRDDRRU,21:URUULDLU","6|0:DDD,30:URDRR,35:LURUUUULLLLDDD,27:LURRUUL,8:DR","6|30:RRRRRUU,28:LLLLUUUURRRRRDDLULLLD,19:RU,22:LU","6|30:UUUUURD,2:DDLDDDRU,20:RUU,3:RRD,10:DRDLDRDLLU","6|0:RRRRRDDDDDLL,28:LURUUL,15:LULLDRDR,18:DDRRUL","5|4:LL,20:URD,10:UURDDRURRDLDRDLLU","6|35:UU,0:DDDDDRRULUU,20:UUL,1:RRDDDD,33:RUUURUULD","6|30:UUUUURRRRRD,31:RR,10:LLLD,19:DRRRDRUUULDLLUR","6|30:UUU,31:RRRRULURUUU,27:LLUUU,6:URRRRDDLU,21:LUU","6|30:RRRR,35:ULLLLLUUUURRRRRDL,19:RRRR,17:LLUL,14:LU","6|35:UUUUULLLLL,10:DDDDLLLLU,6:RRRDD,27:LLULURRD","6|30:RRRRRUUU,28:LLLLUUUURR,19:RRRU,7:DRRUL,3:RRDL","6|30:RRR,5:DDDDDLULLLLUUUUR,4:DDDLLLUURUR,14:RU","7|42:UUUUUURD,15:DDDDRRRRRUUUUUULLL,2:DRRRDDD,40:LUUULL,24:LD,37:RU","6|0:RRRRRDD,35:UULDDLL,16:ULLDRDL,27:LLDLUURU,7:LD","6|35:UUUUULL,34:UU,30:UUUUURRDLDDRURDDDLU,9:RD,25:D","6|30:UR,31:RRRR,18:RRDRRR,23:LLUL,16:RUULDLULDLULDDR","6|0:RRRRRDDDDDLLLL,30:URRRRU,16:ULLLLD,18:RURRDL","6|35:LLLLLUUUU,0:RDDDDRRRRUUUUL,2:RDLDDRR,15:RU","6|30:RRRRRUU,28:LLLLUUUURRRRRDDLUL,22:LUL,20:LUUR","6|30:UUUUURRRRRDD,35:LLLLUUU,7:RDDDRRRULUU,9:DD","6|5:DDDL,29:DLULDLLLUR,26:URURUULDLULLDRDR,12:DR","6|35:UUULU,11:ULLDDDRDDLULDLLURU,20:ULLD,2:DLLUR","6|5:DDDDDLL,4:DDDDLLDLL,21:LURUULD,24:RULURULUR","6|5:LLLLLD,35:LLLLLU,7:RRRRD,12:DRURRRDRDLL,21:LDL","6|30:RRRRR,24:UUUURRRRR,11:DDDL,10:LLLDDDRRURU,20:UR","6|35:UUUU,5:LDDDDDLLLLUUUUUR,7:DDDRRU,20:URUULD","6|30:RRRRRUUUUULL,0:DD,28:LLLLURUUURDR,10:DDL,20:UR","6|35:LLLLLU,0:RDLDDRURU,25:RURDRRULURUULDLD,2:R","6|35:UUUUUL,34:LLL,30:UUUUUR,7:DDDRRRU,16:ULULDDRDL","6|30:UUUUURD,35:LLLLUUURUURRRD,20:DRRRUULU,9:DDR","6|30:UUUU,0:RRD,7:DDDDRRR,35:ULLLUUR,21:RRULURULLD","6|0:RRRRRDDDD,35:LLLLLUU,12:URRRRDDDL,21:ULLDRDL","6|0:RR,30:UUUURRR,3:RRDLDRDLDRDLLLLU,27:LUR,15:LLD","6|0:RRR,6:DDDDRRRRR,5:LDRDLLULLDD,14:DRRRD,25:RRR","6|30:UUUR,6:URDRURRRDDDDDLLLLUURUR,26:RURD,16:UL","6|30:UUUU,0:RDDDDDRRRR,26:URDRRULURUULDLD,3:LDD","6|35:UUUUU,0:RRR,4:DDDDDL,27:UUULLLD,13:RDDDLLU,18:RD","6|35:UUUUULLLLL,34:UUUULLLL,15:LLLDR,20:RDDLULDLU","6|5:DDD,30:UUU,0:DRURDDLDD,31:RRRRULUULUURD,26:URD","6|5:DDDDDLLLLL,24:RRRRUU,4:DLULD,21:ULDLLURULUR","6|5:LL,2:LLDDDDDRRR,25:UUURR,11:LDRDDD,34:UULDL,15:LD","6|30:UUUUUR,5:LLLDLDDDDRRRRULL,26:UURURRDD,21:RU","6|30:RR,5:DD,23:DDLLURUUUULLLLD,9:DDLDLLUURD,14:UL","6|0:DDDDDRRRRRUUUUULL,25:UUUUR,10:LL,26:UURRD,28:LU","6|0:DDDD,30:RRRRRUU,1:DDDDR,2:RRRDDLULLDDRU,22:DL","6|5:LL,0:RRD,6:RDLDRRURURRDLDRD,35:LULU,33:LULLDR","6|0:RRRRRDDD,35:ULDLLLLUR,27:LURRUUL,15:LULLD,18:RU","6|30:UUUUURD,31:RRRRUUUU,5:LDDDDLLLUUR,20:RUU,3:LD","6|5:LLLLLD,30:UUURUR,31:UURURURRDLDLDL,23:DLDR,32:R","6|0:DRU,5:DD,12:DDDRRRRRUULDL,26:LUURD,21:URUULDLU","6|5:DDD,30:UUUUURRRRDDDL,15:UL,7:DRDLDDRURDRRUL","7|46:URUUU,32:LDDLLLUUU,2:RRRRDLLLLLULDDRDDDR,24:RU,47:RUUUU,17:LDD","6|5:LLLLLD,12:DDDRRRRRUUUULLLLD,16:DDLLLU,21:LUR","6|30:UUU,5:DDDDDL,0:DRURDDLDDDRRURU,26:URURU,4:LD","7|48:LLLLLLUUUUUURR,6:LLLDR,13:LDRDLDRD,40:LLLLUU,8:DRU,32:LL,23:RRUL","6|30:UU,5:DDDDDL,33:LLUUR,26:RRU,21:URUULDLULDDR,12:UU","6|0:DDDDDRRRRRUU,17:UU,25:UUU,1:RDDDDRRUUUU,21:UUU","7|0:DDDDDDRRRRRRU,6:DDDDLDL,36:UUUUUR,9:DDDD,38:URULU,26:ULULURRD","6|30:RRRU,34:RULUR,21:LDLLURULUU,7:URDDR,3:DRURDDL","6|35:LLLLLUURDR,12:UUR,13:URURDDLDRDRRULURUU,10:U","6|35:UUUUULLLLLDDDR,7:DRUR,10:DLDRD,20:DRDR,32:LLUR","6|5:LLLLLDDDDDRR,35:UUUULLLLD,34:LURUULLDR,26:LU","6|35:UU,17:UULLLL,0:DRRRRDDDDLU,21:ULLLD,30:URDRUUL","6|30:UU,5:DDDDDLL,12:UURDDDDDRU,2:RR,10:LLDDRU,27:RUU","6|30:RRRRRUUUUU,4:DDDDLL,24:RULU,20:RUUULL,0:DRDRU","6|0:DDDDDRR,5:DDDDDLLURU,25:RULUUUR,21:URUULDLD","6|0:DRURDRURRDLDRDL,12:DDDR,15:DLULDDRDRURR,34:R","6|35:UUUUUL,30:RR,34:LURUUULULL,0:DRRDR,21:LDLLURUL","6|35:LL,0:DDDDDRRULU,29:UU,5:DLULDLULDDRDRURDDL","6|35:UUUUUL,30:UUUUURRRDRD,8:LDDDDR,22:DDLULUURD","6|0:DDDDDRRRRRUUU,5:DLU,3:DLULDDDD,16:DDLLUU,15:D","6|5:DDDDDLLLLLU,28:UUUULLLLDR,9:LDRDDL,25:UR,13:LD","7|6:LLLLLLD,8:RRRR,13:DDDLUUL,41:DLULDLLLLU,14:RRRDR,32:LDLL,30:ULLDR","6|35:LLLLLU,18:UUURRRRRD,29:UULULLLD,15:LDLDRRURD","6|30:UUUUURRRR,5:DLLLLDDDDR,14:DDR,33:RRUL,21:URRDL","6|35:LLLLLUU,25:RRRRUUUULL,10:DDLLLUL,15:ULD,2:LLDR","6|35:UUUUULD,3:LLLDDD,24:DRUUUURRDR,14:DRRDDL,32:UR","6|5:LLLLLD,30:UUURUR,14:RURRDLDRDDL,28:LD,21:LLDDRU","6|0:RRRR,5:DLLLLLDRDL,14:RRRDDDL,20:RR,28:LDLULLDR","6|0:RRR,30:RRRR,35:UUUUULDLDRD,28:LULDLLURUR,8:LLD","6|35:LLL,31:LURRRRRUU,11:ULDDDLLLLU,13:RRUULLL,8:LL","6|30:RRRRRUUUUULD,28:LLLLUUUURRR,16:DLLLUUR,14:RU","6|5:DDDDDL,28:UUUULL,0:RDLDDDDRRRULLUURD,8:RDD","7|0:DDDDDDRRRRR,48:ULLLLLUUU,6:LLL,8:URD,10:RRRDL,30:UURRDL,31:RRRUL","7|48:UUU,0:RRRRRRDDLU,47:UUULU,11:LD,42:RRRRU,32:LULDDR,16:ULLDRDLDD,29:D","6|30:UUUUURD,13:DDDR,26:UUUURD,33:RRULLUURD,23:UUULD","6|0:RRRRRDLL,30:RRRRRU,17:DLDLLLLUUURRDL,16:LDLL","6|0:DDDDDRRRRRUUUUU,28:LLLUUUURRR,8:DDRRU,10:LD","6|0:DDDDDRRRU,25:RULUUURRRRDDDDDLU,22:LU,16:ULLD","6|0:DD,35:LLLLLUURDRRULU,13:UU,28:RULURUULDLD,3:LD","6|0:DD,35:UU,5:DDLDDDLLLLUU,25:RRUU,10:ULDLULDDD,20:U","6|35:UUUUULLLLLD,10:DDDDLU,7:RRDDL,14:LLDRDLDRRU","6|5:LLLLLDDDDDR,7:RRRRD,25:UURRRD,23:DDLULDLUUR","6|30:RRU,24:RUL,12:RRDRDDRRUL,23:LULURRD,5:LLLDLL,1:L","6|30:RRRRR,24:UU,5:LLLLLDRDDDRRRR,23:LLLUU,9:DRRUL","7|0:RR,3:RRRD,12:LLLLLD,20:LLLL,15:DLDDDRR,45:RU,36:URDRUUL,32:URRDLDDRU","6|35:LL,5:LL,30:RRULLUUUURRDLDD,27:RRU,14:DRR,17:ULLDR","6|0:RRR,4:RD,35:UUULULDLULLDRDLDDRURU,32:RRUULD","7|6:DDDDDDLLLL,40:UUUUULL,11:DDD,39:LUUUULULL,7:RDLDRRU,30:DLDLUUR","6|5:LLL,0:RDLDDRURURRRDDDDL,20:RUR,22:DLDLULDLU","6|30:RRRRRUUUUULLD,10:DDDLLLL,21:ULDLLURUR,6:URR","7|6:LLLLLL,42:RRRR,13:DDDDDLULLLLL,33:UUULLD,18:DDL,24:LDLLURULURRD","6|0:DDDRUUUR,24:DRURDRURDRU,20:RUL,8:RURRDLDRDL","5|4:LL,20:UUUURDRDLDDRURDRUUL,9:L","5|24:LL,0:RD,5:DDDRUURDRRULURULLD","5|0:DD,24:LLLLURRULUURDRURDDL,19:L","5|0:RRRRDL,14:LLULLDRDLDR,24:ULLDR","5|0:DD,24:LLLLURURDRRULURUL,7:ULD","6|30:RRRRRUUUUULD,16:DDLLLLU,0:RRRD,15:DLLULURRD","6|35:LLLLLU,5:LLLLLDDDR,25:RURDRRULURULLD,7:DRU","5|0:DD,24:LLLLURURDRRULUURD,7:ULD","6|30:RR,24:RRRDRRULURU,21:LURRURULLDL,2:LLDRDLDR","6|30:RRRRRU,0:RRRRRDDDLDL,16:ULLLLDDDRRUR,15:LLD","6|30:RRRRRU,0:DDDDRRRRURUUULL,1:RDLDDRRUL,16:UL","6|0:RRRR,5:DLLLLLDDDDR,13:DDRDRURRDL,14:DRURRDL","6|35:LLLLLUUUUU,1:DDDDRRRRUL,5:LLLDD,20:RUURRDL","6|0:RRRRRDDDDDLU,22:UULLLLDDDDRRR,27:UULLDD,20:D","6|5:LLLLLDDDDDRRRRR,29:LLLLUUUR,14:DRRRUULL,15:R","6|0:DDDDDRRRRR,5:LLLLDDDDRR,20:UURRR,29:LURULLD","6|0:DDDD,30:RUUUUURDRUR,5:DLDRDLLU,14:DDDRURRDL","6|35:LLLLLUUUUURRRRRDL,9:LLDDDRRRR,20:UR,21:RRUL","6|35:UUUUUL,0:RRRDRD,34:LL,22:DLLURULULLDRDLDRDL","6|5:DDDD,35:LLLLLUUUUURD,2:RRDDDDLLLUUR,20:RUUL","6|0:RRRR,5:DLLDDLUULLDR,19:LDDRURDRURDRUUL,16:R","6|35:LLLLLUUUUURD,13:DDRRRRUUUU,20:RRUUULLD,14:RU","6|35:LLLLL,24:RRR,0:RR,28:RUUUULLDRDDLULDLL,8:LLDR","6|35:UUUUULLLLLDR,34:LLL,30:URRRRU,16:ULLDRDLLLUR","6|35:LLLLLUUUUU,5:LLLLDDD,25:RU,8:DRURRDLDRDLLU","6|30:RRRR,35:ULLLLLUUU,0:RDDDRRR,23:UL,15:LUURDRURD","6|35:LLL,0:DDDDDRUU,5:LLLLDDRU,26:URDRRULURULLD","6|35:LLLLLUUUUURD,2:DDLDDR,20:RDRRULULUURD,5:DD","6|0:RRR,30:RRRR,35:UUUUULDDDDLLLLUUUR,21:LLU,15:LUR","6|0:DDDD,30:RUUUUURRRRDDDDD,34:UUUULLDDD,15:DDDL","6|0:RRRRRDDDDD,10:DD,34:ULDLLLUUUURRRDDL,14:LDDR","6|35:LLLLLUUUUUR,5:LLLDLDDDRRUL,14:RURRDLDR,29:L","6|30:UUUUUR,35:UUUUULLLDLD,9:RDDDDL,31:RURUULDLD","6|35:UUUUULLLLLDDDDD,31:UUUURRRD,32:RRUULD,15:LDD","6|0:RRRRRDDDDDL,28:UUULLLLDDDDRRRU,21:UL,13:DRDL","6|30:UUUUURRRR,5:DLLLLDDDDR,14:DDRDR,35:ULURULLD","6|0:DDDDD,1:DDDDDRRRRUUUL,22:DL,26:URULUURDRURD","6|5:LLLLLDR,35:UUUULLLD,16:LDRDDLULDLLURUR,13:LD","6|5:LLLLLDDDDDRURDR,19:UURRRRDDD,35:LULUR,20:URR","6|35:UUUUULL,10:LDRDDDLLLLU,21:DLLURULLD,0:DRRUL","6|30:RRRULURULUR,25:LURULUURD,2:RR,5:DLDRDLDRDL","6|5:DDDDDLLLLLU,25:RRRUUUULLL,0:DRRRDDL,14:LDLU","6|30:RRRRRUUU,0:DDDDRRR,28:UULDLL,14:LUURDRURDRU","6|35:UUUUULLLLLDDDDDRU,19:UURRRD,15:LDDDRRUU,27:U","6|5:DDDDDLL,0:DDDDDRRULU,28:LUR,20:ULUURDRURDDL","6|35:LLLLLUUU,0:DRURRRRDDDDLLLL,13:DRRRUUL,15:LU","6|30:UUUUURD,2:DDLDDDRRRRULLL,20:RUUU,4:RDLDD,23:U","6|5:LLLLLDDDDDRRULU,13:UR,33:RRUU,20:URURRDLDLDR","6|5:LLLLLDDD,30:URDRUULU,7:RDRURRDLDRDLLU,35:LL","6|35:UU,30:UUUU,0:RD,2:RRRDDLULLDRDRDDLUL,13:DR,32:LU","6|5:LLLLLDDDDDRU,32:UULUU,8:DRURRDLDR,21:DDRRUL","6|30:RRRRRUUUUU,4:DDD,28:LLLLUR,21:LURUULDLULDDR","6|35:LLLLL,24:RR,5:DDD,29:LLURUUUL,9:DLDLLURURULLD","6|30:RRRRRU,0:RRRRRDDDLDLLL,24:UUUR,16:ULLDRDLLU","6|0:DDDDDRRRRRUUUUULL,25:RRRUUU,9:DDLL,14:LUURD","6|30:RRRRRUL,24:RRRURRUL,11:ULDLDLDLLURULUR,8:UR","7|0:DDDDDDRU,44:UULUUUUR,6:LL,3:DLDDRDD,17:RURRDLDRDLLU,45:RUR,47:RU","6|30:UUUUURRRRRDL,17:LLUL,7:DRDLDDRURDRRUL,21:RR","6|0:RRR,4:RDDD,35:ULDLUURUU,9:DLULLDRDRDDLL,18:DR","6|35:UUUUUL,30:RRRRU,10:DDLDLLLUUUUR,20:LUURDRUUL","6|5:LLLLL,11:LLLLLDDDDR,32:ULU,13:RDRURRDLDRDLLU","6|30:RRRRRUUU,5:DLULDDRD,28:LULDLLURUL,14:UULLDR","6|0:DDDDDR,5:LLLLDD,25:URDDR,8:DRURRDLDRDDLULU","6|30:RRRRRUUUU,5:LDDDDLLLLUR,21:LURUULDLULD,12:R","6|0:RRRRRDDDD,35:LUUUULL,15:LDRDDLULDLU,19:LURUL","6|0:DDDDDRRRRRUL,27:LLUUUURR,23:LLLUUR,15:RRULUR","6|30:UUUUURRRRRD,7:RRRDRD,15:LLDDDR,26:URRDLDRRU","6|0:RRRRRDLDRDDDLLL,9:LLLDDDD,31:UUURRDL,22:DLL","6|30:RRRRRUL,24:RRRURRU,5:DLULD,16:LLDLLURULURRD","6|35:UU,5:LLLLLDDDDDRRRRU,25:UUUR,27:LUURURRDLDL","6|30:RRRRRUUUUULD,28:UUL,27:ULDLLURULUURDRD,9:UL","6|30:RRRRRUUU,0:DDDD,5:DLULDLULDDDDR,14:DRURDDL","6|5:LLLLLDDDDDR,25:UUURRRRDDDDLLLU,14:DRUR,27:RU","6|0:RRD,6:DDDDRRRR,35:ULLLLUUU,20:URDRRULURULLD","6|35:LLLLLUU,25:RRRRUUUULL,10:DDLLLULUURRDL,14:RU","6|30:UUUUURRRRRD,7:DDDDRRR,35:ULLLUUURRDL,21:RRU","6|0:DDDRDLDRRU,33:RRULLUR,20:ULUURDRURRDLDL,17:D","6|35:LLL,29:LL,0:DDDDDRURULUUURD,14:RDRRULURUL,9:U","6|30:UUUUURRRRRDDDDDLU,10:LLLDDDD,16:DLUL,20:DDRU","6|0:DDDDDRRR,25:RRUR,19:RULUURDRURRDLDL,17:DDLDR","6|5:DDDDDLLLLLU,25:RRRUUUULLLLD,21:UULLDL,14:DLL","6|35:UU,0:DR,1:RRRRDDLULLDRDRDDLULDL,30:URUR,18:UR","6|35:UUUUULLLLL,30:UU,6:DRURRRD,14:RDRDDLULULDDR","6|5:DDDDDL,28:UUUULLL,0:DRRRDDDDLU,20:ULLDRDLDR","6|35:UU,30:UUUUURRRRRDDLULL,7:DDDDRRRUUL,15:LDDR","6|35:LLLLLUUUU,0:RDDDDRRRRU,20:RRURUU,15:LUURDRU","6|30:UU,31:UUULUURDRUR,4:RDLLDLDDDRRR,21:DRRULUR","6|0:DDDDDRRRRRU,28:LLLU,5:DDDLLLULUURDRU,15:RUU","6|0:RRRRRDDDD,35:LUUUULLDR,7:LDRDLDDRURUR,27:DL","6|30:RRRRRULL,23:UUU,0:RRRRDDDL,9:DLULLDRDRDLLU","6|5:LLLLLDDDDDRRRRR,25:UUURRRRDD,29:LUULLDD,21:D","6|0:RRRRRDL,30:UUUURRRDRRD,13:RDLDDRURDRR,21:RDR","6|35:UUUUULLL,1:LDRR,10:LDRDDDL,27:ULULLDRDRDLLU","6|5:DD,0:RRRRDDDRDD,34:ULDLLLUUUURRRDDL,14:LDDR","6|0:RRDLLDDDDRU,5:LL,13:DRURURRDLDRDDLULU,26:DR","6|0:RRRRRDL,9:LLLDDDDRR,25:UURRRRDDDLLU,28:ULLD","6|35:UU,17:UULLLLLDD,34:UUUULLLD,15:LDRDDLULDLUUR"];
+
+// 미리 만들어 둔 퍼즐을 푼다. 경로는 "시작칸:방향들"(R/L/D/U)로 저장돼 있다.
+const levelCache = {};
+function makeLevel(idx){
+  if (levelCache[idx]) return levelCache[idx];
+  const P = stageParams(idx), parts = STAGES[idx].split('|'), n = +parts[0];
+  const sol = parts[1].split(',').map(t => {
+    const [s, d] = t.split(':'); const p = [+s];
+    for (const ch of d) p.push(p[p.length - 1] + (ch === 'R' ? 1 : ch === 'L' ? -1 : ch === 'D' ? n : -n));
+    return p;
+  });
+  return (levelCache[idx] = { n, sol, pairs: sol.map(p => [p[0], p[p.length - 1]]), kind: P.kind });
+}
+
+// ---------------- 게임 ----------------
+if (typeof document !== 'undefined') (function(){
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  let levelIdx = 0, n, sol, pairs, endOf, paths, active = -1, moves = 0, solved = false, kind = 0;
+  let unlocked = 0;   // 로그아웃 상태에서는 저장하지 않는다
+
+
+  function load(idx){
+    levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
+    const lv = makeLevel(levelIdx);
+    n = lv.n; pairs = lv.pairs; sol = lv.sol; kind = lv.kind;
+    endOf = new Array(n * n).fill(-1);
+    pairs.forEach((p, c) => { endOf[p[0]] = c; endOf[p[1]] = c; });
+    paths = pairs.map(() => []);
+    active = -1; moves = 0; solved = false;
+    $('msg').textContent = '';
+    draw(); updateUI();
+  }
+
+  function ownerAt(cell){
+    for (let c = 0; c < paths.length; c++){
+      const i = paths[c].indexOf(cell);
+      if (i !== -1) return [c, i];
+    }
+    return null;
+  }
+  function isComplete(c){
+    const p = paths[c];
+    return p.length > 1 && endOf[p[0]] === c && endOf[p[p.length - 1]] === c && p[0] !== p[p.length - 1];
+  }
+
+  function cellFromEvent(e){
+    const r = cv.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    if (x < 0 || y < 0 || x >= 1 || y >= 1) return -1;
+    return Math.floor(y * n) * n + Math.floor(x * n);
+  }
+
+  function start(cell){
+    if (solved) return;
+    if (endOf[cell] !== -1){
+      const c = endOf[cell];
+      paths[c] = [cell];
+      active = c; moves++;
+    } else {
+      const o = ownerAt(cell);
+      if (!o) return;
+      const [c, i] = o;
+      paths[c] = paths[c].slice(0, i + 1);
+      active = c; moves++;
+    }
+    draw(); updateUI();
+  }
+
+  function stepTo(cell){
+    const c = active, p = paths[c], head = p[p.length - 1];
+    if (cell === head) return;
+    const idx = p.indexOf(cell);
+    if (idx !== -1){ paths[c] = p.slice(0, idx + 1); return; }   // 되돌리기
+    if (!neighbors(head, n).includes(cell)) return;
+    // 이미 도착 지점에 닿았으면 더 못 늘림
+    if (p.length > 1 && endOf[head] === c) return;
+    if (endOf[cell] !== -1 && endOf[cell] !== c) return;          // 남의 점은 통과 불가
+    const o = ownerAt(cell);
+    if (o && o[0] !== c) paths[o[0]] = paths[o[0]].slice(0, o[1]); // 다른 선 자르기
+    p.push(cell);
+  }
+
+  function move(cell){
+    if (active === -1 || cell === -1) return;
+    const p = paths[active];
+    let head = p[p.length - 1];
+    // 빠르게 드래그해도 칸을 건너뛰지 않도록 한 칸씩 이동
+    let guard = 0;
+    while (head !== cell && guard++ < n * 2){
+      const hr = Math.floor(head / n), hc = head % n, tr = Math.floor(cell / n), tc = cell % n;
+      let next;
+      if (Math.abs(tr - hr) >= Math.abs(tc - hc)) next = head + Math.sign(tr - hr) * n;
+      else next = head + Math.sign(tc - hc);
+      const before = paths[active].length;
+      stepTo(next);
+      const q = paths[active];
+      const nh = q[q.length - 1];
+      if (nh === head && q.length === before) break;
+      head = nh;
+    }
+    draw(); updateUI();
+  }
+
+  function end(){
+    if (active === -1) return;
+    active = -1;
+    checkWin();
+    draw(); updateUI();
+  }
+
+  function checkWin(){
+    if (!paths.every((_, c) => isComplete(c))) return;
+    const filled = paths.reduce((s, p) => s + p.length, 0);
+    if (filled !== n * n) { $('msg').textContent = '모든 칸을 채워야 해요!'; return; }
+    solved = true;
+    $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 잠시 후 다음 스테이지로 넘어가요';
+    if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; saveProgress(unlocked); }
+    buildSelect();
+    if (levelIdx + 1 < TOTAL){
+      const cleared = levelIdx;
+      setTimeout(() => { if (solved && levelIdx === cleared) load(cleared + 1); }, 1200);
+    }
+  }
+
+  const hintUsed = {};   // 스테이지마다 따로 주어지고 쌓이지 않는다
+  function hintsLeft(){ return maxHints(kind) - (hintUsed[levelIdx] || 0); }
+
+  function updateUI(){
+    $('lvl').textContent = '스테이지 ' + (levelIdx + 1) + ' / ' + TOTAL;
+    const dc = $('diff'); dc.hidden = kind !== 2; dc.textContent = KINDS[kind]; dc.className = 'chip k' + kind;
+    const hb = $('hint'); hb.textContent = '힌트 ' + hintsLeft() + '/' + maxHints(kind); hb.disabled = solved || hintsLeft() <= 0;
+    $('prev').disabled = levelIdx === 0;
+    $('next').disabled = !(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1;
+    $('next').classList.toggle('go', solved && levelIdx < TOTAL - 1);
+    const done = paths.filter((_, c) => isComplete(c)).length;
+    $('flows').textContent = '연결 ' + done + '/' + pairs.length;
+    const filled = paths.reduce((s, p) => s + p.length, 0);
+    $('fill').textContent = '채움 ' + Math.round(filled / (n * n) * 100) + '%';
+    if (!solved && done < pairs.length) $('msg').textContent = '';
+  }
+
+  function draw(){
+    const W = cv.width, s = W / n;
+    ctx.clearRect(0, 0, W, W);
+    ctx.fillStyle = '#0b0e15'; ctx.fillRect(0, 0, W, W);
+    ctx.fillStyle = '#3a4152';
+    for (let i = 0; i < n * n; i++)
+      ctx.fillRect((i % n) * s + 2, Math.floor(i / n) * s + 2, s - 4, s - 4);
+    const ctr = i => [(i % n + .5) * s, (Math.floor(i / n) + .5) * s];
+    paths.forEach((p, c) => {
+      if (!p.length) return;
+      const col = COLORS[c % COLORS.length];
+      // 칸 배경
+      ctx.globalAlpha = .35; ctx.fillStyle = col;
+      p.forEach(i => { ctx.fillRect((i % n) * s + 2, Math.floor(i / n) * s + 2, s - 4, s - 4); });
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = s * .34; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      p.forEach((i, k) => { const [x, y] = ctr(i); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.stroke();
+    });
+    pairs.forEach((pr, c) => {
+      ctx.fillStyle = COLORS[c % COLORS.length];
+      pr.forEach(i => {
+        const [x, y] = ctr(i);
+        ctx.beginPath(); ctx.arc(x, y, s * .31, 0, Math.PI * 2); ctx.fill();
+        if (isComplete(c)){ ctx.strokeStyle = '#fff8'; ctx.lineWidth = 2; ctx.stroke(); }
+      });
+    });
+  }
+
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); const c = cellFromEvent(e); if (c !== -1) start(c); });
+  cv.addEventListener('pointermove', e => { if (active !== -1) move(cellFromEvent(e)); });
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  // 정답 선과 어긋난 부분이 있는지 본다 (그린 선이 정답 선의 앞부분과 같으면 맞는 선)
+  function isWrong(c){
+    const p = paths[c];
+    if (p.length < 2) return false;
+    const s = sol[c], ref = p[0] === s[0] ? s : s.slice().reverse();
+    return p.some((x, i) => x !== ref[i]);
+  }
+  $('hint').onclick = () => {
+    if (solved || hintsLeft() <= 0) return;
+    // 1) 이미 그은 선 중 틀린 것이 있으면 그 선을 정답으로 고친다  2) 없으면 아직 안 이은 선 하나를 그어 준다
+    let c = paths.findIndex((_, k) => isWrong(k)), fixed = c !== -1;
+    if (!fixed) c = paths.findIndex((_, k) => !isComplete(k));
+    if (c === -1) return;
+    hintUsed[levelIdx] = (hintUsed[levelIdx] || 0) + 1;
+    const line = sol[c].slice();
+    paths[c] = line;
+    // 정답 선이 지나가는 칸을 차지하고 있던 다른 선은 그 칸 앞에서 잘라 절대 겹치지 않게 한다
+    const on = new Set(line);
+    paths.forEach((p, k) => { if (k !== c){ const j = p.findIndex(x => on.has(x)); if (j !== -1) paths[k] = p.slice(0, j); } });
+    moves++; checkWin(); draw(); updateUI();
+    if (!solved) $('msg').textContent = fixed ? '잘못 그은 선을 고쳤어요' : '선 하나를 이어 줬어요';
+  };
+  $('reset').onclick = () => load(levelIdx);
+  $('prev').onclick = () => load(levelIdx - 1);
+  $('next').onclick = () => { if (solved || levelIdx < unlocked) load(levelIdx + 1); };
+  function buildSelect(){
+    const box = $('grid'); box.textContent = '';
+    for (let i = 0; i < TOTAL; i++){
+      const b = document.createElement('button');
+      b.textContent = i + 1;
+      b.className = 'k' + stageParams(i).kind + (i === levelIdx ? ' cur' : '') + (i < unlocked ? ' done' : '');
+      b.disabled = i > unlocked;
+      b.onclick = () => { load(i); $('sel').hidden = true; };
+      box.appendChild(b);
+    }
+  }
+  $('pick').onclick = () => { const s = $('sel'); s.hidden = !s.hidden; if (!s.hidden){ buildSelect(); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); } };
+  // ---------------- 계정 ----------------
+  let db = null, account = null;   // account = { key, name, hash }
+  const AUTO = 'dotsAuto_normal';
+  const enc = new TextEncoder();
+  const hex = u8 => Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
+  const keyOf = name => 'u' + hex(enc.encode(name.toLowerCase()));
+  function cheapHash(str){
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57, out = '';
+    for (let r = 0; r < 4000; r++)
+      for (let i = 0; i < str.length; i++){
+        const ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    out = (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+    return out;
+  }
+  async function hashPw(name, pw, salt){
+    if (!(window.crypto && crypto.subtle)) return 'c' + cheapHash(salt + name.toLowerCase() + pw);
+    const k = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt + name.toLowerCase()), iterations: 100000 }, k, 256);
+    return hex(new Uint8Array(bits));
+  }
+  function saveProgress(v){
+    if (!account || !db) return;
+    db.doc('accounts/' + account.key).update({ unlocked: v }).catch(() => { $('msg').textContent = '진행 저장에 실패했어요'; });
+  }
+  function setAuto(on){
+    try {
+      if (on && account) localStorage.setItem(AUTO, JSON.stringify({ key: account.key, hash: account.hash }));
+      else localStorage.removeItem(AUTO);
+    } catch (e) {}
+  }
+  function autoOn(){ try { return !!localStorage.getItem(AUTO); } catch (e) { return false; } }
+  function renderAcct(){
+    const out = !account;
+    $('guestBox').hidden = !out;
+    $('userBox').hidden = out;
+    if (!out){ $('who').textContent = account.name; $('auto').checked = autoOn(); }
+    $('guestBox').querySelector('button').disabled = !db;
+    $('note').textContent = out ? (db ? '로그아웃 상태에서는 진행이 저장되지 않아요' : '이 화면에서는 로그인을 쓸 수 없어요') : '진행이 자동으로 저장돼요';
+  }
+  function enter(acc, data, auto){
+    account = acc; unlocked = Math.min(TOTAL - 1, +data.unlocked || 0);
+    setAuto(auto); renderAcct(); buildSelect(); load(unlocked);
+  }
+  function logout(){
+    account = null; setAuto(false); unlocked = 0;
+    renderAcct(); buildSelect(); load(0);
+  }
+  let mode = 'login';
+  function setMode(m){
+    mode = m;
+    $('tabLogin').classList.toggle('on', m === 'login');
+    $('tabSignup').classList.toggle('on', m === 'signup');
+    $('pw2row').hidden = m !== 'signup';
+    $('go').textContent = m === 'login' ? '로그인' : '회원가입';
+    $('err').textContent = '';
+  }
+  async function submitAuth(e){
+    e.preventDefault();
+    const name = $('uid').value.trim(), pw = $('pw').value, err = $('err');
+    err.textContent = '';
+    if (!db){ err.textContent = '로그인을 쓸 수 없어요'; return; }
+    if (!/^[A-Za-z0-9_가-힣]{2,16}$/.test(name)){ err.textContent = '아이디는 2~16자의 글자, 숫자, _ 만 쓸 수 있어요'; return; }
+    if (pw.length < 4){ err.textContent = '비밀번호는 4자 이상이어야 해요'; return; }
+    $('go').disabled = true;
+    try {
+      const ref = db.doc('accounts/' + keyOf(name)), snap = await ref.get();
+      if (mode === 'signup'){
+        if (pw !== $('pw2').value){ err.textContent = '비밀번호가 서로 달라요'; return; }
+        if (snap.exists){ err.textContent = '이미 있는 아이디예요'; return; }
+        const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+        const hash = await hashPw(name, pw, salt);
+        await ref.set({ name, salt, hash, unlocked: 0, created: Date.now() });
+        enter({ key: keyOf(name), name, hash }, { unlocked: 0 }, $('autoNew').checked);
+      } else {
+        const d = snap.exists && snap.data();
+        const hash = d ? await hashPw(d.name, pw, d.salt) : '';
+        if (!d || hash !== d.hash){ err.textContent = '아이디 또는 비밀번호가 맞지 않아요'; return; }
+        enter({ key: keyOf(name), name: d.name, hash }, d, $('autoNew').checked);
+      }
+      $('auth').hidden = true; $('pw').value = ''; $('pw2').value = '';
+    } catch (ex) {
+      err.textContent = '처리하지 못했어요. 잠시 뒤에 다시 시도해 주세요';
+    } finally { $('go').disabled = false; }
+  }
+  $('openAuth').onclick = () => { setMode('login'); $('auth').hidden = false; $('uid').focus(); };
+  $('closeAuth').onclick = () => { $('auth').hidden = true; };
+  $('tabLogin').onclick = () => setMode('login');
+  $('tabSignup').onclick = () => setMode('signup');
+  $('authForm').addEventListener('submit', submitAuth);
+  $('logout').onclick = logout;
+  $('auto').onchange = e => setAuto(e.target.checked);
+
+  load(0);
+  renderAcct();
+  (async function initAuth(){
+    try {
+      db = window.claude && window.claude.use ? await window.claude.use('db') : null;
+    } catch (e) { db = null; }
+    renderAcct();
+    if (!db) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(AUTO) || 'null');
+      if (!saved) return;
+      const snap = await db.doc('accounts/' + saved.key).get();
+      const d = snap.exists && snap.data();
+      if (d && d.hash === saved.hash) enter({ key: saved.key, name: d.name, hash: d.hash }, d, true);
+      else setAuto(false);
+    } catch (e) {}
+  })();
+})();
+</script>
+</body>
+</html>
