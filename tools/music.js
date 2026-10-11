@@ -65,9 +65,9 @@ const Music = (() => {
     for (let s = 0, t = 0; t < seconds; s++, t += sd) schedule(ctx, b, cfg, s, t, st);
   }
 
-  let ctx = null, master = null, cur = null, timer = 0, step = 0, nextT = 0, mode = 'easy', want = false, st = { pos: 3 };
+  let ctx = null, master = null, sfxOut = null, cur = null, timer = 0, step = 0, nextT = 0, mode = 'easy', want = false, st = { pos: 3 };
   const btn = document.getElementById('musicBtn');
-  function paint(){ if (btn){ btn.setAttribute('aria-pressed', want ? 'true' : 'false'); btn.textContent = want ? '♪ 음악 켬' : '♪ 음악 끔'; } }
+  function paint(){ if (btn){ btn.setAttribute('aria-pressed', want ? 'true' : 'false'); btn.textContent = want ? '♪ 소리 켬' : '♪ 소리 끔'; } }
   function ensure(){
     if (ctx) return true;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -76,6 +76,7 @@ const Music = (() => {
     master = ctx.createGain(); master.gain.value = 0;
     const comp = ctx.createDynamicsCompressor();
     master.connect(comp); comp.connect(ctx.destination);
+    sfxOut = ctx.createGain(); sfxOut.gain.value = 0.9; sfxOut.connect(comp);
     return true;
   }
   function loop(){
@@ -123,6 +124,29 @@ const Music = (() => {
     const first = () => { document.removeEventListener('pointerdown', first); document.removeEventListener('keydown', first); if (want) start(); };
     document.addEventListener('pointerdown', first); document.addEventListener('keydown', first);
   }
-  return { setMode, start, stop, renderSchedule };
+  // 효과음: 소리가 켜져 있을 때만 낸다
+  function sfx(fn){
+    if (!want) return;
+    try { if (!ensure()) return; if (ctx.state === 'suspended') ctx.resume(); fn(ctx, sfxOut, ctx.currentTime); } catch (e) {}
+  }
+  return { setMode, start, stop, renderSchedule, sfx };
+})();
+
+const Sfx = (() => {
+  const P = [0, 2, 4, 7, 9], mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  function tn(ctx, out, type, f, t, dur, vol, att){
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }
+  return {
+    tick(i){ Music.sfx((c, o, t) => { const m = 72 + P[i % 5] + 12 * (Math.floor(i / 5) % 2); tn(c, o, 'triangle', mtof(m), t, 0.16, 0.07, 0.004); tn(c, o, 'sine', mtof(m) * 2, t, 0.08, 0.02, 0.004); }); },
+    connect(){ Music.sfx((c, o, t) => { [79, 86].forEach((m, k) => { tn(c, o, 'sine', mtof(m), t + k * 0.08, 0.45, 0.13, 0.005); tn(c, o, 'triangle', mtof(m) * 2, t + k * 0.08, 0.25, 0.04, 0.005); }); }); },
+    clear(){ Music.sfx((c, o, t) => { [72, 76, 79, 84, 88, 91].forEach((m, k) => { tn(c, o, 'sine', mtof(m), t + k * 0.09, 0.7, 0.12, 0.006); tn(c, o, 'triangle', mtof(m) * 2, t + k * 0.09, 0.35, 0.04, 0.006); }); }); },
+    click(){ Music.sfx((c, o, t) => { tn(c, o, 'sine', 880, t, 0.06, 0.05, 0.002); tn(c, o, 'sine', 1320, t + 0.01, 0.05, 0.02, 0.002); }); },
+    cut(){ Music.sfx((c, o, t) => { tn(c, o, 'sine', 170, t, 0.12, 0.09, 0.004); }); },
+    hint(){ Music.sfx((c, o, t) => { [88, 91, 95].forEach((m, k) => tn(c, o, 'sine', mtof(m), t + k * 0.06, 0.5, 0.06, 0.005)); }); }
+  };
 })();
 
