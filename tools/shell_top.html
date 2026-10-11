@@ -89,15 +89,23 @@
   .selhead{position:sticky;top:-10px;z-index:1;margin:-10px -10px 8px;padding:10px 10px 8px;background:var(--panel);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px;border-radius:12px 12px 0 0}
   #closeSel{min-height:0;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;border-radius:10px}
   /* 메인 화면: 계절 배경 위에 제목과 PLAY 버튼만 */
-  body:not(.in-game) > *:not(#home):not(#bgSky):not(#bgScene):not(#bgFront):not(script):not(style){visibility:hidden}
+  body:not(.in-game) > *:not(#home):not(#fade):not(#bgSky):not(#bgScene):not(#bgFront):not(script):not(style){visibility:hidden}
   #home{position:fixed;left:0;top:0;right:0;bottom:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;padding:16px;touch-action:none}
   #home .logo{font-size:clamp(34px,11vw,58px);font-weight:800;text-align:center;text-shadow:0 4px 26px rgba(0,0,0,.6);text-wrap:balance}
   #playBtn{font-size:22px;font-weight:800;letter-spacing:.14em;padding:16px 58px;min-height:0;border-radius:999px;color:#fff;border:1px solid #b3c7ff;background:linear-gradient(180deg,#7ea4ff,#4a6fe8);box-shadow:0 8px 28px rgba(60,100,255,.5),inset 0 2px 0 rgba(255,255,255,.35);animation:playPulse 2.2s ease-in-out infinite}
   @keyframes playPulse{50%{transform:scale(1.05)}}
   @media (prefers-reduced-motion:reduce){#playBtn{animation:none}}
+  #fade{position:fixed;left:0;top:0;right:0;bottom:0;z-index:20;background:#000;opacity:0;pointer-events:none;display:flex;align-items:center;justify-content:center;transition:opacity .7s ease}
+  #fade.on{opacity:1;pointer-events:auto}
+  #loadTxt{color:#e8ecf5;font-size:20px;font-weight:600;letter-spacing:.08em;opacity:0;transition:opacity .35s ease}
+  #fade.on #loadTxt.show{opacity:1}
+  #loadTxt .d{animation:blink 1.2s infinite;opacity:.2}
+  #loadTxt .d:nth-child(2){animation-delay:.2s}#loadTxt .d:nth-child(3){animation-delay:.4s}
+  @keyframes blink{40%{opacity:1}}
 </style>
 </head>
 <body>
+<div id="fade" aria-hidden="true"><div id="loadTxt">로딩중<span class="d">.</span><span class="d">.</span><span class="d">.</span></div></div>
 <div id="home">
   <div class="logo">점 잇기 퍼즐</div>
   <button type="button" id="playBtn">PLAY</button>

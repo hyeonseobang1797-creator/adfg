@@ -379,5 +379,14 @@ if (typeof document !== 'undefined') (function(){
   renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
   buildSelect(); load(unlocked);
   initSettings();
-  $('playBtn').onclick = () => { document.body.classList.add('in-game'); $('home').hidden = true; fit(); };
+  // PLAY: 0.7초 동안 까맣게 → "로딩중..." 1.6초 → 0.7초 동안 게임 화면이 서서히 나타난다 (모두 3초)
+  let starting = false;
+  $('playBtn').onclick = () => {
+    if (starting) return; starting = true;
+    const fade = $('fade'), txt = $('loadTxt');
+    fade.classList.add('on');
+    setTimeout(() => { txt.classList.add('show'); document.body.classList.add('in-game'); $('home').hidden = true; fit(); }, 700);
+    setTimeout(() => { txt.classList.remove('show'); }, 2150);
+    setTimeout(() => { fade.classList.remove('on'); }, 2300);
+  };
 })();
