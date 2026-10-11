@@ -268,7 +268,7 @@ if (typeof document !== 'undefined') (function(){
 
   function updateUI(){
     $('lvl').textContent = '스테이지 ' + (levelIdx + 1) + ' / ' + TOTAL;
-    const dc = $('diff'); dc.hidden = kind === 0; dc.textContent = KINDS[kind]; dc.className = 'chip k' + kind;
+    const dc = $('diff'); dc.hidden = kind !== 2; dc.textContent = KINDS[kind]; dc.className = 'chip k' + kind;
     const hb = $('hint'); hb.textContent = '힌트 ' + hintsLeft() + '/' + maxHints(kind); hb.disabled = solved || hintsLeft() <= 0;
     $('prev').disabled = levelIdx === 0;
     $('next').disabled = !(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1;
