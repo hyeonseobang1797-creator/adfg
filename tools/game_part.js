@@ -159,13 +159,23 @@ if (typeof document !== 'undefined') (function(){
   }
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
 
+  function fit(){
+    const top = cv.getBoundingClientRect().top, msgH = $('msg').offsetHeight + 8;
+    const availH = window.innerHeight - top - msgH - 14;
+    const availW = document.body.clientWidth - 32;
+    const side = Math.max(170, Math.min(availW * 0.94, 500, availH));
+    if (!(Math.abs(parseFloat(cv.style.width) - side) <= 0.5)){ cv.style.width = side + 'px'; cv.style.height = side + 'px'; }
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', () => setTimeout(fit, 120));
   function draw(){ dirty = true; }
-  let dirty = true, lastT = 0;
+  let dirty = true, lastT = 0, lastFit = 0;
   function loop(t){
     requestAnimationFrame(loop);
     if (t - lastT < 30) return;   // 약 30프레임
     const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
     if (!n) return;
+    if (t - lastFit > 300){ lastFit = t; fit(); }
     render(performance.now(), dt);
   }
   function render(t, dt){

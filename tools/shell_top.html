@@ -49,10 +49,23 @@
   button{min-height:40px}
   /* 모바일: 주소창·하단 막대에 가리지 않게 아래 여백을 크게 두고, 판이 한 화면에 들어오도록 높이에 맞춘다 */
   [hidden]{display:none!important}
-  html{height:auto;overflow-y:auto;overscroll-behavior:auto}
-  body{min-height:100vh;min-height:100dvh;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
-  canvas{width:min(100%,520px,max(260px,calc(100vh - 330px)));width:min(100%,520px,max(260px,calc(100dvh - 330px)))}
-  @media (max-height:720px){.sub{display:none}}
+  /* 스크롤 없이 한 화면에: 판 크기는 자바스크립트가 남은 높이에 맞춘다 */
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  body{height:100vh;height:100dvh;box-sizing:border-box;touch-action:none;gap:8px;padding-block:10px calc(10px + env(safe-area-inset-bottom))}
+  h1{margin:0;font-size:20px}
+  .acct{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:4px 10px}
+  .acct .note{flex-basis:100%;text-align:center;font-size:12px}
+  #sel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,520px);max-height:70vh;max-height:70dvh;z-index:7;box-shadow:0 10px 40px rgba(0,0,0,.6);touch-action:pan-y;overscroll-behavior:contain}
+  @media (max-height:760px){.sub{display:none}}
+  /* 좁은 화면: 머리 부분을 낮춰 판에 높이를 더 준다 */
+  button{min-height:36px;padding:6px 11px;font-size:14px}
+  .stat{padding:6px 10px;font-size:13px}
+  .bar{gap:6px}
+  #modes{gap:5px}
+  #modes button{padding:6px 12px}
+  #msg{min-height:20px;line-height:20px;font-size:14px}
+  h1{font-size:19px}
+  @media (max-height:480px){html,body{overflow:auto}body{height:auto;min-height:100%}}
 </style>
 </head>
 <body>
