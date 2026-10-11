@@ -112,25 +112,44 @@ const Bg = (() => {
     c.globalAlpha = 1;
   }
   const OAK = (cols) => ({ depth: 7, leafDepth: 3, spread: 0.55, ratio: 0.72, fork3: 0.2, dabs: 7, fr: 0.07, dab: 0.012, dark: cols[0], mid: cols[1], light: cols[2] });
-  // 소나무: 층층이 아래로 처진 가지, 위에는 눈
+  // 소나무: 줄기에서 뻗은 가지마다 바늘잎이 촘촘히 나고, 가지 위에 눈이 덩이로 쌓인다
   function conifer(c, x, base, h, snow, r){
-    bough(c, x - h * 0.02, base, x, base - h * 0.2, x + h * 0.004, base - h * 0.4, h * 0.05, h * 0.02, '#2e2018');
-    const n = 11;
-    for (let i = 0; i < n; i++){
-      const t = i / (n - 1), y = base - h * 0.14 - t * h * 0.84, half = (1 - t * 0.92) * h * 0.24 + h * 0.015;
+    if (snow){
+      const sh = c.createRadialGradient(x + h * 0.08, base, 0, x + h * 0.08, base, h * 0.3); sh.addColorStop(0, 'rgba(40,70,120,0.35)'); sh.addColorStop(1, 'rgba(40,70,120,0)');
+      c.save(); c.translate(0, base); c.scale(1, 0.18); c.translate(0, -base); c.fillStyle = sh; c.beginPath(); c.arc(x + h * 0.08, base, h * 0.3, 0, 6.283); c.fill(); c.restore();
+    }
+    bough(c, x - h * 0.018, base + 1, x, base - h * 0.25, x + h * 0.003, base - h * 0.5, h * 0.04, h * 0.012, '#2e2018');
+    const tiers = 13;
+    for (let i = 0; i < tiers; i++){
+      const t = i / (tiers - 1), y = base - h * 0.1 - t * h * 0.86, reach = (1 - t) * h * 0.2 + h * 0.014;
       for (let s = -1; s <= 1; s += 2){
-        for (let k = 0; k < 16; k++){
-          const reach = half * (0.3 + 0.7 * (k / 15)) * (0.85 + r() * 0.25), droop = reach * (0.34 + r() * 0.12), yy = y + (r() - 0.5) * h * 0.02;
-          c.strokeStyle = 'hsl(' + (150 + r() * 14) + ',' + (38 + r() * 12) + '%,' + (13 + r() * 9 + t * 5) + '%)'; c.lineWidth = Math.max(1.6, h * (0.03 - t * 0.012)); c.lineCap = 'round';
-          c.beginPath(); c.moveTo(x, yy); c.quadraticCurveTo(x + s * reach * 0.55, yy - reach * 0.12, x + s * reach, yy + droop); c.stroke();
-          if (snow && r() < 0.8){
-            c.strokeStyle = 'rgba(240,247,255,' + (0.55 + r() * 0.35) + ')'; c.lineWidth = Math.max(1.2, h * 0.016);
-            c.beginPath(); c.moveTo(x + s * reach * 0.12, yy - 1); c.quadraticCurveTo(x + s * reach * 0.55, yy - reach * 0.15, x + s * reach * 0.95, yy + droop * 0.8); c.stroke();
+        for (let k = 0; k < 6; k++){
+          const len = reach * (0.45 + 0.55 * r()), dr = 0.28 + r() * 0.3, yy = y + (r() - 0.5) * h * 0.035;
+          const ex = x + s * len, ey = yy + len * dr, cx = x + s * len * 0.5, cy = yy + len * dr * 0.1;
+          c.strokeStyle = 'hsl(' + (150 + r() * 12) + ',' + (35 + r() * 10) + '%,' + (12 + r() * 6) + '%)'; c.lineWidth = Math.max(1, h * 0.008); c.lineCap = 'round';
+          c.beginPath(); c.moveTo(x, yy); c.quadraticCurveTo(cx, cy, ex, ey); c.stroke();
+          const nl = Math.max(3, h * (0.035 - t * 0.012));
+          for (let j = 1; j <= 9; j++){
+            const u = j / 9, mu = 1 - u, px = mu * mu * x + 2 * mu * u * cx + u * u * ex, py = mu * mu * yy + 2 * mu * u * cy + u * u * ey;
+            c.strokeStyle = 'hsl(' + (148 + r() * 16) + ',' + (38 + r() * 14) + '%,' + (14 + r() * 12 + u * 5) + '%)'; c.lineWidth = 1.3;
+            c.beginPath(); c.moveTo(px, py); c.lineTo(px + s * nl * 0.35, py + nl * (0.9 + r() * 0.4)); c.moveTo(px, py); c.lineTo(px - s * nl * 0.3, py + nl * (0.7 + r() * 0.4)); c.stroke();
+          }
+          if (snow){
+            for (let j = 1; j <= 5; j++){
+              const u = j / 6 + (r() - 0.5) * 0.08, mu = 1 - u, px = mu * mu * x + 2 * mu * u * cx + u * u * ex, py = mu * mu * yy + 2 * mu * u * cy + u * u * ey - h * 0.004;
+              c.fillStyle = 'rgba(' + (232 + Math.round(r() * 20)) + ',' + (242 + Math.round(r() * 10)) + ',255,' + (0.7 + r() * 0.25) + ')';
+              c.beginPath(); c.ellipse(px, py, Math.max(1.5, len * 0.1), Math.max(1, len * 0.045), 0.15 * s, 0, 6.283); c.fill();
+            }
           }
         }
       }
     }
-    c.fillStyle = snow ? '#eef5fc' : '#14402f'; c.beginPath(); c.moveTo(x, base - h); c.lineTo(x - h * 0.03, base - h * 0.88); c.lineTo(x + h * 0.03, base - h * 0.88); c.fill();
+    for (let k = 0; k < 18; k++){
+      const a = (r() - 0.5) * 1.6, L = h * (0.03 + r() * 0.04), ax = x, ay = base - h * 0.95;
+      c.strokeStyle = 'hsl(' + (150 + r() * 10) + ',40%,' + (14 + r() * 8) + '%)'; c.lineWidth = 1.3;
+      c.beginPath(); c.moveTo(ax, ay + h * 0.06); c.lineTo(ax + Math.sin(a) * L, ay - Math.cos(a) * L + h * 0.04); c.stroke();
+    }
+    if (snow){ c.fillStyle = 'rgba(240,247,255,0.95)'; c.beginPath(); c.ellipse(x, base - h * 0.97, h * 0.012, h * 0.03, 0, 0, 6.283); c.fill(); }
   }
   function palm(c, x, base, h, r){
     // 줄기: 살짝 굽고 마디가 있다
@@ -171,12 +190,12 @@ const Bg = (() => {
   }
 
   // ----- 풍경(크기가 바뀔 때만 한 번 그린다) -----
-  let glints = [];
+  let glints = [], chimney = null;
   function buildScene(){
     scene.width = cv.width; scene.height = cv.height;
     sg.setTransform(D, 0, 0, D, 0, 0); sg.clearRect(0, 0, W, H);
     const r = lcg(season.charCodeAt(0) * 977), hz = H * 0.7, base = Math.min(W, H);
-    glints = [];
+    glints = []; chimney = null;
     if (season === 'summer'){
       layer(sg, { seed: 5, y0: hz - 6, amp: 26, scale: 0.006, ridged: true, top: 'rgba(52,120,140,0.9)', bot: 'rgba(52,120,140,0.9)', fog: '150,215,225', fogA: 0.7 });
       const sea = sg.createLinearGradient(0, hz, 0, H); sea.addColorStop(0, '#2fb5cc'); sea.addColorStop(0.45, '#0e7b9c'); sea.addColorStop(1, '#05344d');
@@ -225,6 +244,7 @@ const Bg = (() => {
       for (let i = 0; i < 12; i++) conifer(sg, W * (i + r() * 0.8) / 12, H * (0.76 + r() * 0.02), H * (0.1 + r() * 0.05), true, r);
       layer(sg, { seed: 24, y0: H * 0.82, amp: 16, scale: 0.008, top: '#e4edf8', bot: '#aebfd8' });
       const cx = W * 0.8, cy = H * 0.875, w = Math.min(W * 0.15, 130);
+      sg.fillStyle = '#5a4034'; sg.fillRect(cx + w * 0.22, cy - w * 0.95, w * 0.14, w * 0.5);
       sg.fillStyle = '#4a3226'; sg.fillRect(cx - w / 2, cy - w * 0.45, w, w * 0.45);
       sg.strokeStyle = 'rgba(30,18,12,0.5)'; sg.lineWidth = 1; for (let i = 1; i < 6; i++){ sg.beginPath(); sg.moveTo(cx - w / 2, cy - w * 0.45 + i * w * 0.075); sg.lineTo(cx + w / 2, cy - w * 0.45 + i * w * 0.075); sg.stroke(); }
       const wg = sg.createRadialGradient(cx, cy - w * 0.22, 0, cx, cy - w * 0.22, w * 0.55); wg.addColorStop(0, 'rgba(255,200,90,0.6)'); wg.addColorStop(1, 'rgba(255,200,90,0)');
@@ -232,10 +252,14 @@ const Bg = (() => {
       sg.fillStyle = '#ffd36b'; sg.fillRect(cx - w * 0.13, cy - w * 0.32, w * 0.26, w * 0.2);
       sg.fillStyle = '#f2f8fd'; sg.beginPath(); sg.moveTo(cx - w * 0.64, cy - w * 0.43); sg.lineTo(cx, cy - w * 0.95); sg.lineTo(cx + w * 0.64, cy - w * 0.43); sg.quadraticCurveTo(cx, cy - w * 0.5, cx - w * 0.64, cy - w * 0.43); sg.fill();
       layer(sg, { seed: 25, y0: H * 0.92, amp: 10, scale: 0.011, top: '#f4f9fd', bot: '#bccde2' });
-      conifer(sg, W * 0.07, H * 0.97, Math.min(H * 0.42, 360), true, r);
-      conifer(sg, W * 0.17, H * 0.985, Math.min(H * 0.3, 260), true, r);
+      const fh1 = Math.min(H * 0.42, 360, W * 0.55), fh2 = Math.min(H * 0.3, 260, W * 0.4);
+      conifer(sg, fh1 * 0.24 + 6, H * 0.97, fh1, true, r);
+      conifer(sg, fh1 * 0.5 + fh2 * 0.26 + 14, H * 0.985, fh2, true, r);
+      chimney = { x: cx + w * 0.3, y: cy - w * 0.88, w: w };
       for (let i = 0; i < 120; i++){ sg.fillStyle = 'rgba(255,255,255,' + (0.4 + r() * 0.5) + ')'; sg.beginPath(); sg.arc(r() * W, H * 0.9 + r() * H * 0.1, 0.6 + r() * 1.1, 0, 6.283); sg.fill(); }
     }
+    const vg = sg.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.85); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,10,0.38)');
+    sg.fillStyle = vg; sg.fillRect(0, 0, W, H);
     // 위쪽을 어둡게 눌러 제목과 버튼 글자가 잘 보이게 한다
     const ov = sg.createLinearGradient(0, 0, 0, H * 0.62); ov.addColorStop(0, 'rgba(5,8,20,0.55)'); ov.addColorStop(1, 'rgba(5,8,20,0)');
     sg.fillStyle = ov; sg.fillRect(0, 0, W, H);
@@ -347,6 +371,12 @@ const Bg = (() => {
       else if (season === 'autumn') leaf(g, p.s, p.c, p.k, flip);
       else flake(g, p.r);
       g.restore();
+    }
+    if (chimney){
+      for (let k = 0; k < 7; k++){
+        const u = ((t / 3200) + k / 7) % 1, px = chimney.x + u * chimney.w * 0.6 + Math.sin(u * 7 + k) * 4, py = chimney.y - u * chimney.w * 1.3, rr = 3 + u * 11;
+        g.fillStyle = 'rgba(225,233,246,' + ((1 - u) * 0.32) + ')'; g.beginPath(); g.arc(px, py, rr, 0, 6.283); g.fill();
+      }
     }
     if (season === 'summer'){
       for (const s of glints){ g.fillStyle = 'rgba(255,248,210,' + (0.15 + 0.55 * Math.max(0, Math.sin(t / 500 + s.ph))) + ')'; g.fillRect(s.x, s.y, s.w, 1.4); }
