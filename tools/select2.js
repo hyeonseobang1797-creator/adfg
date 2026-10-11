@@ -5,7 +5,7 @@ const C = require('./core');
 let pool = [];
 const add = f => fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).forEach(l => pool.push(JSON.parse(l)));
 add(__dirname + '/rated.jsonl');
-for (const f of fs.readdirSync(__dirname + '/pool')) if (/^c\d+\.jsonl$/.test(f)) add(__dirname + '/pool/' + f);
+for (const f of fs.readdirSync(__dirname + '/pool')) if (/^[cb]\d+\.jsonl$/.test(f)) add(__dirname + '/pool/' + f);
 const byLevel = {};
 pool.forEach(o => (byLevel[o.level] = byLevel[o.level] || []).push(o));
 for (const L of Object.values(byLevel)){
