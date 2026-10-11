@@ -5,7 +5,10 @@ const C = require('./core');
 let pool = [];
 const add = f => fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).forEach(l => pool.push(JSON.parse(l)));
 add(__dirname + '/rated.jsonl');
-for (const f of fs.readdirSync(__dirname + '/pool')) if (/^[cb]\d+\.jsonl$/.test(f)) add(__dirname + '/pool/' + f);
+for (const f of fs.readdirSync(__dirname + '/pool')) if (/^c\d+\.jsonl$/.test(f)) add(__dirname + '/pool/' + f);
+// d*: 정답이 몇 개 안 되는 큰 판. 판이 클수록, 정답이 적을수록 어렵다고 본다
+for (const f of fs.readdirSync(__dirname + '/pool')) if (/^d\d+\.jsonl$/.test(f))
+  fs.readFileSync(__dirname + '/pool/' + f, 'utf8').split('\n').filter(Boolean).forEach(l => { const o = JSON.parse(l); o.level = 7; o.effort = o.n * 1000 + (4 - o.sols) * 100 + o.k; pool.push(o); });
 const byLevel = {};
 pool.forEach(o => (byLevel[o.level] = byLevel[o.level] || []).push(o));
 for (const L of Object.values(byLevel)){
@@ -24,8 +27,8 @@ const bossIdx = [], normIdx = [];
 for (let i = 0; i < C.TOTAL; i++) (C.stageParams(i).kind === 1 || C.stageParams(i).kind === 2 ? bossIdx : normIdx).push(i);
 const out = [];
 // 어려움/하드 스테이지는 같은 지점의 일반 스테이지보다 한 단계 더 깊은 퍼즐
-bossIdx.forEach(idx => out.push({ idx, p: nearest(Math.min(6.9, 1.6 + 3.9 * Math.pow(idx / (C.TOTAL - 1), 0.8) + 0.9)) }));
-normIdx.forEach((idx, j) => out.push({ idx, p: nearest(1.0 + 3.7 * Math.pow(j / (normIdx.length - 1), 0.8)) }));
+bossIdx.forEach(idx => out.push({ idx, p: nearest(Math.min(7.95, 1.0 + 6.9 * Math.pow(idx / (C.TOTAL - 1), 0.9) + 0.6)) }));
+normIdx.forEach((idx, j) => out.push({ idx, p: nearest(1.0 + 6.9 * Math.pow(j / (normIdx.length - 1), 0.9)) }));
 out.sort((a, b) => a.idx - b.idx);
 fs.writeFileSync(__dirname + '/final.jsonl', out.map(o => JSON.stringify({ idx: o.idx, n: o.p.n, k: o.p.k, level: o.p.level, effort: o.p.effort, enc: o.p.enc })).join('\n') + '\n');
 const sz = {}, lv = {};
