@@ -3,110 +3,148 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#10131c">
+<meta name="theme-color" content="#0a1220">
 <title>점 잇기 퍼즐</title>
 <style>
-  /* Layout: centered single-column game board with a compact status bar above */
-  :root{--bg:#10131c;--panel:#1a1f2e;--fg:#e8ecf5;--muted:#8791a8;--line:#2a3147;--accent:#5b8cff;--ok:#7dffb0;color-scheme:dark}
-  html,body{margin:0}
-  body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;padding-inline:16px;padding-block:16px;display:flex;flex-direction:column;align-items:center;gap:12px;-webkit-user-select:none;user-select:none}
-  h1{margin:4px 0 0;font-size:22px;text-wrap:balance}
-  .sub{color:var(--muted);font-size:13px;margin:0;text-align:center;max-width:46ch}
-  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
-  button{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:15px;cursor:pointer;font-family:inherit}
-  button:hover{border-color:var(--accent)}
-  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .stat{background:var(--panel);border-radius:10px;padding:8px 14px;font-size:14px;text-align:center;font-variant-numeric:tabular-nums}
-  canvas{width:min(100%,520px);aspect-ratio:1;touch-action:none;border-radius:14px;background:#0b0e15}
-  #msg{min-height:24px;font-weight:600;color:var(--ok)}
-  button:disabled{opacity:.35;cursor:default}
-  button.go{border-color:var(--ok);color:var(--ok);animation:pulse 1.2s ease-in-out infinite}
-  @keyframes pulse{50%{box-shadow:0 0 0 4px #7dffb033}}
-  @media (prefers-reduced-motion:reduce){button.go{animation:none}}
-  .chip{border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700}
-  .chip.k0,#grid .k0{--c:#3ddc84}.chip.k1,#grid .k1{--c:#ffd23f}.chip.k2,#grid .k2{--c:#ff4d4d}.chip.k3,#grid .k3{--c:#4dd2ff}
-  .chip{background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
-  #sel{width:min(100%,520px);max-height:260px;overflow-y:auto;background:var(--panel);border-radius:12px;padding:10px}
-  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px}
-  #grid button{padding:8px 0;font-size:13px;font-variant-numeric:tabular-nums;border-color:color-mix(in srgb,var(--c) 40%,var(--line))}
-  #grid button.done{background:color-mix(in srgb,var(--c) 16%,var(--panel))}
-  #grid button.cur{outline:2px solid var(--fg)}
-  .acct{display:flex;flex-direction:column;align-items:center;gap:6px}
-  #userBox{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
-  .note{color:var(--muted);font-size:12px}
-  .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
-  #auth{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
-  #auth[hidden]{display:none}
-  #authForm{background:var(--panel);border-radius:14px;padding:18px;width:min(100%,340px);display:flex;flex-direction:column;gap:8px}
-  #authForm label{font-size:13px;color:var(--muted)}
-  #authForm input[type=text],#authForm input[type=password],#uid{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:15px;font-family:inherit}
-  .tabs,.row{display:flex;gap:8px}
-  .tabs button{flex:1}.tabs button.on{border-color:var(--accent);color:var(--accent)}
-  .row .primary{flex:1;background:var(--accent);border-color:var(--accent);color:#fff}
-  #err{min-height:18px;font-size:13px;color:#ff7a7a}
-  html{overscroll-behavior:none;-webkit-text-size-adjust:100%}
-  body{min-height:100%;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding-bottom:max(16px,env(safe-area-inset-bottom))}
-  button{min-height:40px}
-  /* 모바일: 주소창·하단 막대에 가리지 않게 아래 여백을 크게 두고, 판이 한 화면에 들어오도록 높이에 맞춘다 */
+  /* Layout: 가운데 한 줄 화면. 위에서부터 상단바, 난이도, 진행, 판, 안내, 하단 독 */
+  :root{
+    --ink:#eef2fb;--ink2:#c3cce0;--muted:#8f9ab3;
+    --glass:rgba(12,18,32,.68);--glass2:rgba(24,32,54,.82);--edge:rgba(255,255,255,.13);--edge2:rgba(255,255,255,.24);
+    --accent:#6b9bff;--accent2:#8d7bff;--ok:#6df0a8;--danger:#ff7a86;
+    --font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,sans-serif;
+    --bg:#0a1220;color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%}
+  body{height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font-family:var(--font);text-rendering:optimizeLegibility;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:none}
   [hidden]{display:none!important}
-  /* 스크롤 없이 한 화면에: 판 크기는 자바스크립트가 남은 높이에 맞춘다 */
-  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
-  body{height:100vh;height:100dvh;box-sizing:border-box;touch-action:none;gap:8px;padding-block:10px calc(10px + env(safe-area-inset-bottom))}
-  h1{margin:0;font-size:20px}
-  .acct{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:4px 10px}
-  .acct .note{flex-basis:100%;text-align:center;font-size:12px}
-  #sel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,520px);max-height:70vh;max-height:70dvh;z-index:7;box-shadow:0 10px 40px rgba(0,0,0,.6);touch-action:pan-y;overscroll-behavior:contain}
-  @media (max-height:760px){.sub{display:none}}
-  /* 좁은 화면: 머리 부분을 낮춰 판에 높이를 더 준다 */
-  button{min-height:36px;padding:6px 11px;font-size:14px}
-  .stat{padding:6px 10px;font-size:13px}
-  .bar{gap:6px}
-  #modes{gap:5px}
-  #modes button{padding:6px 12px}
-  #msg{min-height:20px;line-height:20px;font-size:14px}
-  h1{font-size:19px}
-  @media (max-height:480px){html,body{overflow:auto}body{height:auto;min-height:100%}}
-  .head{position:relative;display:flex;justify-content:center;align-items:center;width:min(100%,520px)}
-  #openSettings{position:absolute;right:0;top:50%;transform:translateY(-50%);width:40px;height:40px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center;border-radius:12px}
-  #openSettings svg{transition:transform .4s ease}
-  #openSettings:hover svg,#openSettings:active svg{transform:rotate(60deg)}
-  #openSettings:not(:disabled):active{transform:translateY(-50%) scale(.94)}
-  #settings{position:fixed;left:0;top:0;right:0;bottom:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:8;touch-action:auto}
-  #settings .box{background:var(--panel);border-radius:14px;padding:18px;width:min(100%,340px);display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
-  #settings h2{margin:0;font-size:18px}
-  .srow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px;min-height:36px}
-  .sw{width:52px;height:30px;min-height:0;border-radius:15px;padding:0;position:relative;background:#3a4255;border:1px solid var(--line)}
-  .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#cfd6e6;transition:transform .15s}
-  .sw[aria-pressed=true]{background:var(--accent);border-color:var(--accent)}
+  #app{width:min(100%,520px);flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px}
+  button{font:inherit;color:var(--ink);background:var(--glass);border:1px solid var(--edge);border-radius:12px;padding:8px 14px;cursor:pointer;
+    position:relative;overflow:hidden;min-height:36px;transition:transform .1s ease,box-shadow .2s ease,border-color .2s ease,background-color .2s ease,opacity .2s}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button:disabled{opacity:.35;cursor:default}
+  button:not(:disabled):active{transform:scale(.94)}
+  @media (hover:hover){button:not(:disabled):hover{border-color:var(--edge2);box-shadow:0 0 0 3px rgba(107,155,255,.22)}}
+  .rip{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.34);transform:scale(0);animation:rip .5s ease-out forwards}
+  @keyframes rip{to{transform:scale(1);opacity:0}}
+  .ic{display:block;flex:none}
+  svg.ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* 상단바 */
+  .top{width:100%;display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px}
+  .icoBtn{width:44px;height:44px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:14px;background:var(--glass);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  #openSettings svg{transition:transform .45s ease}
+  @media (hover:hover){#openSettings:hover svg{transform:rotate(60deg)}}
+  #openSettings:active svg{transform:rotate(60deg)}
+  .ttl{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+  #lvl{font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:5px}
+  #lvl .lab{font-size:12px;letter-spacing:.16em;color:var(--ink2);font-weight:600}
+  #lvl b{font-size:30px;font-weight:800;letter-spacing:-.01em}
+  #lvl .of{font-size:13px;color:var(--ink2);font-weight:600}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--glass);border:1px solid var(--edge);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chip.k2{--c:#ff6b78;color:var(--c);border-color:color-mix(in srgb,var(--c) 55%,transparent);background:color-mix(in srgb,var(--c) 18%,rgba(12,18,32,.7));margin-top:3px;padding:2px 10px;font-size:11px;letter-spacing:.1em}
+
+  /* 난이도: 미끄러지는 선택 표시 */
+  #modes{position:relative;width:100%;display:grid;grid-template-columns:repeat(5,1fr);padding:4px;border-radius:16px;background:var(--glass);border:1px solid var(--edge);--i:0}
+  #modes .thumb{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px) / 5);border-radius:12px;transform:translateX(calc(var(--i) * 100%));
+    background:linear-gradient(180deg,rgba(255,255,255,.26),rgba(255,255,255,.1));border:1px solid var(--edge2);box-shadow:0 4px 14px rgba(0,0,0,.35);transition:transform .32s cubic-bezier(.3,.9,.3,1.1)}
+  #modes button{position:relative;z-index:1;background:none;border:0;box-shadow:none!important;min-height:34px;padding:6px 4px;font-size:14px;font-weight:700;color:var(--ink2);display:flex;align-items:center;justify-content:center;gap:6px;border-radius:12px}
+  #modes button::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--sc);box-shadow:0 0 8px var(--sc);flex:none}
+  #modes button[data-mode=easy]{--sc:#4fd6e8}#modes button[data-mode=normal]{--sc:#ff9ec7}#modes button[data-mode=hard]{--sc:#ffa24d}#modes button[data-mode=extreme]{--sc:#b9d6ff}#modes button[data-mode=random]{--sc:#d2a8ff}
+  #modes button.on{color:#fff}
+
+  /* 진행 */
+  .stats{width:100%;display:flex;align-items:center;gap:8px}
+  .meter{flex:1;height:6px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden}
+  .meter i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--ok));transition:width .3s ease}
+
+  /* 판 */
+  .boardwrap{padding:6px;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04));border:1px solid var(--edge);box-shadow:0 14px 36px rgba(0,0,0,.5)}
+  canvas#c{display:block;aspect-ratio:1;touch-action:none;border-radius:14px;background:#0b0e15}
+  .under{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+  #msg{min-height:20px;line-height:20px;font-size:14px;font-weight:700;color:var(--ok);text-shadow:0 1px 6px rgba(0,0,0,.6);text-align:center}
+
+  /* 하단 독 */
+  .dock{width:100%;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .dk{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 2px 6px;min-height:54px;border-radius:16px;font-size:11px;font-weight:600;color:var(--ink2);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  .dk svg{width:22px;height:22px}
+  .dk span{font-variant-numeric:tabular-nums}
+  #hint:not(:disabled){color:#ffe08a}
+  button.go{border-color:var(--ok);color:var(--ok);animation:goPulse 1.3s ease-in-out infinite}
+  @keyframes goPulse{50%{box-shadow:0 0 0 5px rgba(109,240,168,.28)}}
+
+  /* 창(설정, 스테이지 목록) */
+  .scrim{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(3,6,14,.62);display:flex;align-items:center;justify-content:center;padding:16px;z-index:8;touch-action:auto}
+  .panel{background:var(--glass2);border:1px solid var(--edge2);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column}
+  .phead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 10px 18px}
+  .phead h2{margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em}
+  .xBtn{width:36px;height:36px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,.08)}
+  #settings .panel{width:min(100%,360px)}
+  #settings .body{padding:2px 18px 18px;display:flex;flex-direction:column;gap:6px}
+  .srow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;border-bottom:1px solid rgba(255,255,255,.08);font-size:15px;font-weight:600}
+  .srow .l{display:flex;align-items:center;gap:12px}
+  .badge{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1)}
+  .sw{width:54px;height:32px;min-height:0;border-radius:16px;padding:0;background:rgba(255,255,255,.16);border:1px solid var(--edge)}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#dfe5f3;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .2s cubic-bezier(.3,.9,.3,1.2)}
+  .sw[aria-pressed=true]{background:linear-gradient(90deg,var(--accent),var(--accent2));border-color:transparent}
   .sw[aria-pressed=true]::after{transform:translateX(22px);background:#fff}
-  button.danger{border-color:#b04a4a;color:#ff9a9a}
-  #confirm{background:#2a1c1c;border:1px solid #6b3434;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;text-align:center}
-  #confirm p{margin:0;font-weight:600}
-  #settings .row{display:flex;gap:8px}
-  #settings .row button{flex:1}
-  #settings .hint{margin:0;font-size:12px;color:var(--muted);text-align:center}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .selhead{position:sticky;top:-10px;z-index:1;margin:-10px -10px 8px;padding:10px 10px 8px;background:var(--panel);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px;border-radius:12px 12px 0 0}
-  #closeSel{min-height:0;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;border-radius:10px}
-  /* 메인 화면: 계절 배경 위에 제목과 PLAY 버튼만 */
-  body:not(.in-game) > *:not(#home):not(#fade):not(#bgSky):not(#bgScene):not(#bgFront):not(script):not(style){visibility:hidden}
-  #home{position:fixed;left:0;top:0;right:0;bottom:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;padding:16px;touch-action:none}
-  #home .logo{font-size:clamp(34px,11vw,58px);font-weight:800;text-align:center;text-shadow:0 4px 26px rgba(0,0,0,.6);text-wrap:balance}
-  #playBtn{font-size:22px;font-weight:800;letter-spacing:.14em;padding:16px 58px;min-height:0;border-radius:999px;color:#fff;border:1px solid #b3c7ff;background:linear-gradient(180deg,#7ea4ff,#4a6fe8);box-shadow:0 8px 28px rgba(60,100,255,.5),inset 0 2px 0 rgba(255,255,255,.35);animation:playPulse 2.2s ease-in-out infinite}
+  button.danger{color:var(--danger);border-color:rgba(255,122,134,.5);background:rgba(255,122,134,.1)}
+  #confirm{margin-top:8px;background:rgba(255,122,134,.1);border:1px solid rgba(255,122,134,.4);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px;text-align:center}
+  #confirm p{margin:0;font-weight:700}
+  .row{display:flex;gap:8px}.row button{flex:1}
+  #settings .hint{margin:10px 0 2px;font-size:12px;color:var(--muted);text-align:center}
+  button.primary{color:#fff;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));box-shadow:0 6px 18px rgba(107,155,255,.4);font-weight:700}
+  #sel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,520px);max-height:72vh;max-height:72dvh;z-index:7;overflow:hidden;touch-action:pan-y;overscroll-behavior:contain}
+  #sel .phead{padding-bottom:6px}
+  #sel .sub{padding:0 18px 8px;font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;gap:10px}
+  #gridwrap{overflow-y:auto;padding:0 14px 14px;overscroll-behavior:contain;touch-action:pan-y}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:7px}
+  #grid button{padding:9px 0;min-height:40px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;border-radius:12px;color:var(--ink2);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1)}
+  #grid button.done{color:#fff;background:linear-gradient(180deg,rgba(109,240,168,.26),rgba(109,240,168,.1));border-color:rgba(109,240,168,.45)}
+  #grid button.k1:not(.done),#grid button.k2:not(.done){border-color:rgba(255,162,77,.5)}
+  #grid button.k2:not(.done){border-color:rgba(255,107,120,.6)}
+  #grid button.cur{outline:2px solid #fff;outline-offset:1px;color:#fff}
+
+  /* 클리어 */
+  #clearBanner{position:fixed;left:0;top:0;right:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #clearBanner .cb{text-align:center;padding:22px 40px;border-radius:26px;background:linear-gradient(180deg,rgba(24,32,54,.88),rgba(10,16,30,.88));border:1px solid var(--edge2);box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 0 6px rgba(109,240,168,.12)}
+  #clearBanner .stars{font-size:26px;letter-spacing:.2em;color:#ffd66b;text-shadow:0 0 16px rgba(255,214,107,.7)}
+  #clearBanner .cbt{font-size:40px;font-weight:900;letter-spacing:.08em;background:linear-gradient(90deg,#6df0a8,#6b9bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #clearBanner .cbs{font-size:14px;color:var(--ink2);font-weight:600;margin-top:2px}
+  #clearBanner:not([hidden]) .cb{animation:cbIn .5s cubic-bezier(.2,.9,.3,1.25) both}
+  #clearBanner.out .cb{animation:cbOut .3s ease both}
+  @keyframes cbIn{from{opacity:0;transform:scale(.6) translateY(20px)}to{opacity:1;transform:none}}
+  @keyframes cbOut{to{opacity:0;transform:scale(.95) translateY(-8px)}}
+
+  /* 메인 화면 */
+  body:not(.in-game) #app{visibility:hidden}
+  #home{position:fixed;left:0;top:0;right:0;bottom:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;touch-action:none}
+  #home .emblem{width:clamp(110px,34vw,150px);height:auto;filter:drop-shadow(0 10px 24px rgba(0,0,0,.5))}
+  #home .logo{font-size:clamp(34px,11vw,56px);font-weight:900;letter-spacing:-.02em;text-align:center;text-wrap:balance;background:linear-gradient(180deg,#fff,#cfdcff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 20px rgba(0,0,0,.55))}
+  #home .tag{font-size:14px;color:var(--ink2);text-shadow:0 2px 10px rgba(0,0,0,.7);margin-bottom:22px;text-align:center}
+  #playBtn{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;letter-spacing:.14em;padding:16px 54px 16px 46px;min-height:0;border-radius:999px;color:#fff;border:1px solid rgba(255,255,255,.55);
+    background:linear-gradient(180deg,#86abff,#4d6fe8 60%,#6a58e6);box-shadow:0 12px 34px rgba(80,110,255,.55),inset 0 2px 0 rgba(255,255,255,.4);animation:playPulse 2.2s ease-in-out infinite}
   @keyframes playPulse{50%{transform:scale(1.05)}}
-  @media (prefers-reduced-motion:reduce){#playBtn{animation:none}}
+  #home:not([hidden]){animation:mIn .35s ease both}
+  #home .tube{stroke-dasharray:240;stroke-dashoffset:240;animation:draw 1.3s .2s ease forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+
+  /* 로딩 */
   #fade{position:fixed;left:0;top:0;right:0;bottom:0;z-index:20;background:#000;opacity:0;pointer-events:none;display:flex;align-items:center;justify-content:center;transition:opacity .7s ease}
   #fade.on{opacity:1;pointer-events:auto}
-  #loadTxt{color:#e8ecf5;font-size:20px;font-weight:600;letter-spacing:.08em;opacity:0;transition:opacity .35s ease}
+  #loadTxt{color:var(--ink);font-size:20px;font-weight:600;letter-spacing:.08em;opacity:0;transition:opacity .35s ease}
   #fade.on #loadTxt.show{opacity:1}
   #loadTxt .d{animation:blink 1.2s infinite;opacity:.2}
   #loadTxt .d:nth-child(2){animation-delay:.2s}#loadTxt .d:nth-child(3){animation-delay:.4s}
   @keyframes blink{40%{opacity:1}}
-  /* 부드러운 움직임: 창이 나타나고 사라지고, 판이 떠오르고, 안내 글이 나타난다 */
+
+  /* 부드러운 움직임 */
   #settings:not([hidden]){animation:mIn .24s ease both}
-  #settings:not([hidden]) .box{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
+  #settings:not([hidden]) .panel{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
   #settings.out{animation:mOut .19s ease both}
-  #settings.out .box{animation:boxOut .19s ease both}
+  #settings.out .panel{animation:boxOut .19s ease both}
   #sel:not([hidden]){animation:selIn .26s cubic-bezier(.2,.9,.3,1.1) both}
   #sel.out{animation:selOut .19s ease both}
   .stagein{animation:stageIn .38s cubic-bezier(.2,.9,.3,1.1) both}
@@ -119,50 +157,94 @@
   @keyframes selOut{to{opacity:0;transform:translate(-50%,-47%) scale(.97)}}
   @keyframes stageIn{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:none}}
   @keyframes msgPop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-  #modes button.on,.stat{transition:background-color .25s ease,border-color .25s ease,color .25s ease}
+  @media (max-width:400px){#modes button{font-size:12.5px;gap:4px;padding:6px 1px}#modes button::before{width:6px;height:6px}}
+  @media (max-width:340px){#modes button::before{display:none}}
+  @media (max-height:700px){#lvl b{font-size:26px}.dk{min-height:48px;padding:5px 2px}}
+  @media (max-height:480px){html,body{overflow:auto}body{height:auto;min-height:100%}}
   /* 모션 줄이기: 모든 움직임을 끈다 */
   .reduce *,.reduce *::before,.reduce *::after{animation-duration:.001ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.001ms!important;transition-delay:0s!important}
-  .reduce #playBtn{animation:none!important}
+  .reduce #playBtn,.reduce button.go{animation:none!important}
+  .reduce #home .tube{stroke-dashoffset:0}
   .reduce #loadTxt .d{animation:none!important;opacity:1}
 </style>
 </head>
 <body>
 <div id="fade" aria-hidden="true"><div id="loadTxt">로딩중<span class="d">.</span><span class="d">.</span><span class="d">.</span></div></div>
+
 <div id="home">
+  <svg class="emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <defs>
+      <radialGradient id="bR" cx="35%" cy="32%" r="75%"><stop offset="0" stop-color="#ffd0d0"/><stop offset=".45" stop-color="#ff4d4d"/><stop offset="1" stop-color="#a81d2a"/></radialGradient>
+      <radialGradient id="bB" cx="35%" cy="32%" r="75%"><stop offset="0" stop-color="#cfe7ff"/><stop offset=".45" stop-color="#3fa9ff"/><stop offset="1" stop-color="#1b5fb5"/></radialGradient>
+      <radialGradient id="bY" cx="35%" cy="32%" r="75%"><stop offset="0" stop-color="#fff2b8"/><stop offset=".45" stop-color="#ffd23f"/><stop offset="1" stop-color="#c58a0a"/></radialGradient>
+    </defs>
+    <path class="tube" d="M22 94 V52 Q22 30 44 30 H76 Q98 30 98 52 V94" fill="none" stroke="#7a1520" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="tube" d="M22 94 V52 Q22 30 44 30 H76 Q98 30 98 52 V94" fill="none" stroke="#ff4d4d" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="tube" d="M22 94 V52 Q22 30 44 30 H76 Q98 30 98 52 V94" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-2 -2)"/>
+    <path d="M52 94 V70 H68 V94" fill="none" stroke="#164d8c" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M52 94 V70 H68 V94" fill="none" stroke="#3fa9ff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="22" cy="94" r="10" fill="url(#bR)"/><circle cx="98" cy="94" r="10" fill="url(#bR)"/>
+    <circle cx="52" cy="94" r="9" fill="url(#bB)"/><circle cx="68" cy="94" r="9" fill="url(#bB)"/>
+    <circle cx="60" cy="52" r="8" fill="url(#bY)"/>
+    <g fill="rgba(255,255,255,.75)"><ellipse cx="19" cy="90" rx="3" ry="1.8"/><ellipse cx="95" cy="90" rx="3" ry="1.8"/><ellipse cx="49.5" cy="90.5" rx="2.6" ry="1.5"/><ellipse cx="65.5" cy="90.5" rx="2.6" ry="1.5"/><ellipse cx="57.5" cy="48.5" rx="2.4" ry="1.4"/></g>
+  </svg>
   <div class="logo">점 잇기 퍼즐</div>
-  <button type="button" id="playBtn">PLAY</button>
+  <div class="tag">점을 이어 판을 가득 채우세요</div>
+  <button type="button" id="playBtn"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" style="fill:currentColor;stroke:none"><path d="M7 4.5v15l13-7.5z"/></svg>PLAY</button>
 </div>
-<div class="head"><h1>점 잇기 퍼즐</h1><button type="button" id="openSettings" aria-label="설정" title="설정"><svg viewBox="-12 -12 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M-3.01 -7.09 L-2.25 -10.15 L2.25 -10.15 L3.01 -7.09 L4.63 -6.15 L7.67 -7.03 L9.92 -3.13 L7.64 -0.94 L7.64 0.94 L9.92 3.13 L7.67 7.03 L4.63 6.15 L3.01 7.09 L2.25 10.15 L-2.25 10.15 L-3.01 7.09 L-4.63 6.15 L-7.67 7.03 L-9.92 3.13 L-7.64 0.94 L-7.64 -0.94 L-9.92 -3.13 L-7.67 -7.03 L-4.63 -6.15 Z"/><circle r="3.3"/></svg></button></div>
-<p class="sub">같은 색 점끼리 선으로 연결하고, 판의 모든 칸을 채우세요. 선은 서로 겹칠 수 없어요.</p>
-<div id="settings" hidden>
-  <div class="box" role="dialog" aria-label="설정">
-    <h2>설정</h2>
-    <div class="srow"><span>배경음악</span><button type="button" id="tgMusic" class="sw" aria-pressed="true" aria-label="배경음악"></button></div>
-    <div class="srow"><span>효과음</span><button type="button" id="tgSfx" class="sw" aria-pressed="true" aria-label="효과음"></button></div>
-    <div class="srow"><span>모션 줄이기</span><button type="button" id="tgMotion" class="sw" aria-pressed="false" aria-label="모션 줄이기"></button></div>
-    <div class="srow"><span>진행 상황</span><button type="button" id="resetAll" class="danger">초기화</button></div>
-    <div id="confirm" hidden>
-      <p>정말 초기화 하시겠습니까?</p>
-      <div class="row"><button type="button" id="yes" class="danger">예</button><button type="button" id="no">아니요</button></div>
-    </div>
-    <p class="hint">진행 상황은 이 기기에 자동으로 저장돼요.</p>
-    <button type="button" id="closeSettings" class="primary">닫기</button>
+
+<div id="clearBanner" hidden aria-live="polite"><div class="cb"><div class="stars">★ ★ ★</div><div class="cbt">CLEAR!</div><div class="cbs" id="cbStage"></div></div></div>
+
+<div id="app">
+  <header class="top">
+    <button type="button" id="homeBtn" class="icoBtn" aria-label="메인 화면" title="메인 화면"><svg class="ic" viewBox="0 0 24 24" width="22" height="22"><path d="M3 11.5 12 4l9 7.5M5.5 10v9.5h13V10"/></svg></button>
+    <div class="ttl"><div id="lvl"><span class="lab" id="lvlLab">스테이지</span> <b id="lvlN">1</b> <span class="of" id="lvlOf">/ 480</span></div><div class="chip k0" id="diff" hidden></div></div>
+    <button type="button" id="openSettings" class="icoBtn" aria-label="설정" title="설정"><svg viewBox="-12 -12 24 24" width="22" height="22" class="ic" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M-3.01 -7.09 L-2.25 -10.15 L2.25 -10.15 L3.01 -7.09 L4.63 -6.15 L7.67 -7.03 L9.92 -3.13 L7.64 -0.94 L7.64 0.94 L9.92 3.13 L7.67 7.03 L4.63 6.15 L3.01 7.09 L2.25 10.15 L-2.25 10.15 L-3.01 7.09 L-4.63 6.15 L-7.67 7.03 L-9.92 3.13 L-7.64 0.94 L-7.64 -0.94 L-9.92 -3.13 L-7.67 -7.03 L-4.63 -6.15 Z"/><circle r="3.3"/></svg></button>
+  </header>
+  <div id="modes" role="group" aria-label="난이도"><i class="thumb"></i><button type="button" data-mode="easy">쉬움</button><button type="button" data-mode="normal">보통</button><button type="button" data-mode="hard">어려움</button><button type="button" data-mode="extreme">익스트림</button><button type="button" data-mode="random">랜덤</button></div>
+  <div class="stats">
+    <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span id="flows">연결 0/0</span></div>
+    <div class="meter"><i id="fillBar"></i></div>
+    <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 12h16M12 4v16"/></svg><span id="fill">채움 0%</span></div>
+  </div>
+  <div class="stats" id="rbar" hidden>
+    <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="rTime">0.0초</span></div>
+    <div style="flex:1"></div>
+    <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M9 20h6M10 17h4"/></svg><span id="rBest">최고 -</span></div>
+  </div>
+  <div class="boardwrap"><canvas id="c" width="520" height="520"></canvas></div>
+  <div class="under" id="under">
+    <div id="msg"></div>
+    <nav class="dock" aria-label="조작">
+      <button type="button" class="dk" id="prev" aria-label="이전 스테이지"><svg class="ic" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg><span>이전</span></button>
+      <button type="button" class="dk" id="hint" aria-label="힌트"><svg class="ic" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/></svg><span id="hintTxt">힌트 2/2</span></button>
+      <button type="button" class="dk" id="reset" aria-label="다시"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4.5h4.5"/></svg><span>다시</span></button>
+      <button type="button" class="dk" id="pick" aria-label="스테이지 목록"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><span>목록</span></button>
+      <button type="button" class="dk" id="next" aria-label="다음 스테이지"><svg class="ic" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg><span id="nextTxt">다음</span></button>
+    </nav>
   </div>
 </div>
-<div class="bar">
-  <button id="prev" aria-label="이전 스테이지">◀</button>
-  <div class="stat" id="lvl">스테이지 1</div><div class="chip k0" id="diff" hidden></div>
-  <button id="next" aria-label="다음 스테이지">▶</button>
-  <div class="stat" id="flows">연결 0/0</div>
-  <div class="stat" id="fill">채움 0%</div>
-  <button id="hint">힌트</button>
-  <button id="reset">다시</button>
-  <button id="pick">목록</button>
+
+<div id="settings" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="설정">
+    <div class="phead"><h2>설정</h2><button type="button" id="closeSettings" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="body">
+      <div class="srow"><div class="l"><span class="badge"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3Zm10-2a3 3 0 1 1-3-3 3 3 0 0 1 3 3Z"/></svg></span>배경음악</div><button type="button" id="tgMusic" class="sw" aria-pressed="true" aria-label="배경음악"></button></div>
+      <div class="srow"><div class="l"><span class="badge"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M4 9v6h4l5 4V5L8 9H4ZM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></span>효과음</div><button type="button" id="tgSfx" class="sw" aria-pressed="true" aria-label="효과음"></button></div>
+      <div class="srow"><div class="l"><span class="badge"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg></span>모션 줄이기</div><button type="button" id="tgMotion" class="sw" aria-pressed="false" aria-label="모션 줄이기"></button></div>
+      <div class="srow" style="border-bottom:0"><div class="l"><span class="badge"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span>진행 상황</div><button type="button" id="resetAll" class="danger">초기화</button></div>
+      <div id="confirm" hidden>
+        <p>정말 초기화 하시겠습니까?</p>
+        <div class="row"><button type="button" id="yes" class="danger">예</button><button type="button" id="no">아니요</button></div>
+      </div>
+      <p class="hint">진행 상황은 이 기기에 자동으로 저장돼요.</p>
+    </div>
+  </div>
 </div>
-<canvas id="c" width="520" height="520"></canvas>
-<div id="msg"></div>
-<div id="sel" hidden>
-  <div class="selhead"><span>스테이지 목록</span><button type="button" id="closeSel" aria-label="목록 닫기">✕</button></div>
-  <div id="grid"></div>
+
+<div id="sel" class="panel" hidden>
+  <div class="phead"><h2>스테이지 목록</h2><button type="button" id="closeSel" class="xBtn" aria-label="목록 닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+  <div class="sub"><span id="selProg">1 / 480</span><span>노랑·빨강 테두리: 어려움 / 하드</span></div>
+  <div id="gridwrap"><div id="grid"></div></div>
 </div>
 <script>

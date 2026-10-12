@@ -16,16 +16,25 @@ for (const p of PROFS){
   if (missing.length) console.error(p, 'missing stages:', missing.join(','));
   sets[p] = arr;
 }
-const data = 'const STAGESETS = ' + JSON.stringify(sets) + ';\n';
+// 랜덤 모드에서 같은 판(돌리거나 뒤집어서 같은 것 포함)이 두 번 나오지 않도록, 겹치는 판 번호를 미리 뽑아 둔다.
+const decPaths = (n, enc) => enc.split(',').map(t => { const [s, d] = t.split(':'); const p = [+s]; for (const ch of d) p.push(p[p.length - 1] + (ch === 'R' ? 1 : ch === 'L' ? -1 : ch === 'D' ? n : -n)); return p; });
+const seenSig = new Set(), skip = [];
+PROFS.forEach((p, ti) => sets[p].forEach((st, idx) => {
+  const [ns, enc] = st.split('|'), n = +ns, sig = n + ':' + C.signature(n, decPaths(n, enc));
+  if (seenSig.has(sig)) skip.push(ti * C.TOTAL + idx); else seenSig.add(sig);
+}));
+console.log('random pool:', PROFS.length * C.TOTAL - skip.length, 'puzzles (duplicates removed:', skip.length + ')');
+const data = 'const STAGESETS = ' + JSON.stringify(sets) + ';\nconst RTIERS = ' + JSON.stringify(PROFS) + ';\nconst RSKIP = new Set(' + JSON.stringify(skip) + ');\n';
 const decode = `
 let MODE = 'easy';
-try { const m = localStorage.getItem('dotsMode'); if (STAGESETS[m]) MODE = m; } catch (e) {}
+try { const m = localStorage.getItem('dotsMode'); if (STAGESETS[m] || m === 'random') MODE = m; } catch (e) {}
 // 미리 만들어 둔 퍼즐을 푼다. 경로는 "시작칸:방향들"(R/L/D/U)로 저장돼 있다.
 const levelCache = {};
-function makeLevel(idx){
-  const ck = MODE + idx;
+function makeLevel(idx, mode){
+  mode = mode || MODE;
+  const ck = mode + idx;
   if (levelCache[ck]) return levelCache[ck];
-  const P = stageParams(idx), parts = STAGESETS[MODE][idx].split('|'), n = +parts[0];
+  const P = stageParams(idx), parts = STAGESETS[mode][idx].split('|'), n = +parts[0];
   const sol = parts[1].split(',').map(t => {
     const [s, d] = t.split(':'); const p = [+s];
     for (const ch of d) p.push(p[p.length - 1] + (ch === 'R' ? 1 : ch === 'L' ? -1 : ch === 'D' ? n : -n));
@@ -35,10 +44,7 @@ function makeLevel(idx){
 }
 
 `;
-let top = fs.readFileSync(__dirname + '/shell_top.html', 'utf8');
-top = top.replace('</style>', '  #modes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}\n    h1,.sub,.note{text-shadow:0 1px 4px rgba(0,0,0,.6)}\n  .sub,.note{color:#e3e9f7}\n  button{position:relative;overflow:hidden;transition:transform .08s ease,box-shadow .18s ease,border-color .18s ease,background-color .18s ease}\n  button:not(:disabled):hover{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}\n  button:not(:disabled):active{transform:scale(.94)}\n  .rip{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.38);transform:scale(0);animation:rip .5s ease-out forwards}\n  @keyframes rip{to{transform:scale(1);opacity:0}}\n  #musicBtn{font-size:13px;padding:6px 12px;min-height:34px}\n  #musicBtn[aria-pressed=false]{opacity:.6}\n  #modes button.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}\n</style>');
-top = top.replace('<div id="modes">', '<div id="modes">')
-top = top.replace('<div class="bar">', '<div id="modes"><button data-mode="easy">쉬움</button><button data-mode="normal">보통</button><button data-mode="hard">어려움</button><button data-mode="extreme">익스트림</button></div>\n<div class="bar">');
+const top = fs.readFileSync(__dirname + '/shell_top.html', 'utf8');
 const out = top + runtimeHead + data + decode + fs.readFileSync(__dirname + '/bg.js', 'utf8') + fs.readFileSync(__dirname + '/music.js', 'utf8') + fs.readFileSync(__dirname + '/game_part.js', 'utf8') + fs.readFileSync(__dirname + '/shell_bottom.html', 'utf8');
 fs.writeFileSync(__dirname + '/../index.html', out);
 console.log('built, bytes', out.length);

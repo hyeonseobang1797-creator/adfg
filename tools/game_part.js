@@ -7,24 +7,69 @@ if (typeof document !== 'undefined') (function(){
   let unlocked = 0;   // 현재 난이도에서 연 스테이지. 로그아웃 상태에서는 저장하지 않는다
   const unlockedBy = { easy: 0, normal: 0, hard: 0, extreme: 0 };
   const MODES = ['easy', 'normal', 'hard', 'extreme'];
-  function renderModes(){ document.querySelectorAll('#modes button[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE)); }
+  const ALL_MODES = MODES.concat('random');
+  const TIERNAME = { easy: '쉬움', normal: '보통', hard: '어려움', extreme: '익스트림' };
+  function renderModes(){ document.querySelectorAll('#modes button[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE)); $('modes').style.setProperty('--i', ALL_MODES.indexOf(MODE)); }
   function switchLevel(m){
     if (m === MODE) return;
-    unlockedBy[MODE] = unlocked; MODE = m; unlocked = unlockedBy[m];
+    if (MODE !== 'random') unlockedBy[MODE] = unlocked;
+    MODE = m; rTierShown = null;
     try { localStorage.setItem('dotsMode', m); } catch (e) {}
     saveProgress();
+    if (m === 'random'){ renderModes(); nextRandom(); return; }
+    unlocked = unlockedBy[m];
     renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE); buildSelect(); load(unlocked);
   }
 
+  // ---------------- 랜덤 모드: 지금까지 풀지 않은 판 가운데 무작위로, 시간과 최고 기록과 함께 ----------------
+  const RKEY = 'dotsRandom';
+  const rs = { seen: [], best: {}, played: 0 };   // seen: 이미 나온 판, best: 난이도별 최고 기록(밀리초)
+  let rnd = { tier: 'easy', idx: 0, id: 0 }, rTierShown = null;
+  const tm = { running: false, acc: 0, last: 0 };
+  function loadRandom(){
+    try {
+      const o = JSON.parse(localStorage.getItem(RKEY) || '{}');
+      rs.seen = Array.isArray(o.seen) ? o.seen.filter(Number.isInteger) : [];
+      rs.best = o.best && typeof o.best === 'object' ? o.best : {};
+      rs.played = +o.played || 0;
+    } catch (e) {}
+  }
+  function saveRandom(){ try { localStorage.setItem(RKEY, JSON.stringify(rs)); } catch (e) {} }
+  const fmtTime = ms => { const s = ms / 1000; return s < 60 ? s.toFixed(1) + '초' : Math.floor(s / 60) + '분 ' + (s % 60).toFixed(1) + '초'; };
+  const rating = () => Math.min(100, Math.round(RTIERS.indexOf(rnd.tier) * 25 + 25 * rnd.idx / (TOTAL - 1)));
+  function pickRandom(){
+    const seen = new Set(rs.seen), total = RTIERS.length * TOTAL;
+    let pool = [], reshuffled = false;
+    for (let id = 0; id < total; id++) if (!RSKIP.has(id) && !seen.has(id)) pool.push(id);
+    if (!pool.length){ rs.seen = []; reshuffled = true; for (let id = 0; id < total; id++) if (!RSKIP.has(id)) pool.push(id); }
+    const id = pool[Math.floor(Math.random() * pool.length)];
+    rs.seen.push(id); rs.played++; saveRandom();
+    return { id, tier: RTIERS[Math.floor(id / TOTAL)], idx: id % TOTAL, reshuffled };
+  }
+  function nextRandom(){
+    const p = pickRandom(); rnd = { id: p.id, tier: p.tier, idx: p.idx };
+    renderModes(); load(0);
+    if (p.reshuffled) $('msg').textContent = '모든 판을 풀어서 다시 섞었어요';
+  }
+  const hintKey = () => MODE === 'random' ? 'r' + rnd.id : levelIdx;
+  const modalOpen = () => !$('settings').hidden || !$('sel').hidden;
 
   function load(idx){
-    levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
-    const lv = makeLevel(levelIdx);
+    { const cb = $('clearBanner'); clearTimeout(cb._t1); clearTimeout(cb._t2); cb.hidden = true; cb.classList.remove('out'); }
+    let lv;
+    if (MODE === 'random'){
+      levelIdx = rnd.idx; lv = makeLevel(rnd.idx, rnd.tier);
+      if (rTierShown !== rnd.tier){ rTierShown = rnd.tier; Bg.set(SEASON[rnd.tier]); Music.setMode(rnd.tier); }
+    } else {
+      levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
+      lv = makeLevel(levelIdx);
+    }
     n = lv.n; pairs = lv.pairs; sol = lv.sol; kind = lv.kind;
     endOf = new Array(n * n).fill(-1);
     pairs.forEach((p, c) => { endOf[p[0]] = c; endOf[p[1]] = c; });
     paths = pairs.map(() => []);
     active = -1; moves = 0; solved = false;
+    tm.running = false; tm.acc = 0;
     $('msg').textContent = '';
     draw(); updateUI(); kick(cv, 'stagein');
   }
@@ -50,6 +95,7 @@ if (typeof document !== 'undefined') (function(){
 
   function start(cell){
     if (solved) return;
+    if (MODE === 'random' && !tm.running){ tm.running = true; tm.last = performance.now(); }
     if (endOf[cell] !== -1){
       const c = endOf[cell];
       paths[c] = [cell];
@@ -116,7 +162,20 @@ if (typeof document !== 'undefined') (function(){
     if (!paths.every((_, c) => isComplete(c))) return;
     const filled = paths.reduce((s, p) => s + p.length, 0);
     if (filled !== n * n) { $('msg').textContent = '모든 칸을 채워야 해요!'; return; }
-    solved = true; fxConfetti(); Sfx.clear(); buzz([20, 50, 20, 50, 40]);
+    solved = true; showClear(); fxConfetti(); Sfx.clear(); buzz([20, 50, 20, 50, 40]);
+    if (MODE === 'random'){
+      tm.running = false;
+      const t = Math.round(tm.acc), used = (hintUsed[hintKey()] || 0) > 0, prev = rs.best[rnd.tier];
+      let newRec = false;
+      if (!used && (prev == null || t < prev)){ rs.best[rnd.tier] = t; newRec = true; }
+      saveRandom();
+      $('msg').textContent = used ? '클리어! ' + fmtTime(t) + ' (힌트를 써서 기록에서 제외)' : newRec ? '신기록! ' + fmtTime(t) : '클리어! ' + fmtTime(t) + ' (최고 ' + fmtTime(prev) + ')';
+      $('cbStage').textContent = TIERNAME[rnd.tier] + ' · ' + fmtTime(t) + (newRec ? ' · 신기록!' : '');
+      const cid = rnd.id;
+      setTimeout(() => { if (solved && MODE === 'random' && rnd.id === cid) nextRandom(); }, 2800);
+      updateUI();
+      return;
+    }
     $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 잠시 후 다음 스테이지로 넘어가요';
     if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; unlockedBy[MODE] = unlocked; saveProgress(); }
     buildSelect();
@@ -126,20 +185,35 @@ if (typeof document !== 'undefined') (function(){
     }
   }
 
+  function showClear(){
+    const b = $('clearBanner');
+    $('cbStage').textContent = '스테이지 ' + (levelIdx + 1) + (levelIdx + 1 >= TOTAL ? ' · 전체 클리어' : '');
+    clearTimeout(b._t1); clearTimeout(b._t2); b.classList.remove('out'); b.hidden = false;
+    if (reduceFx){ b._t2 = setTimeout(() => { b.hidden = true; }, 1400); return; }
+    b._t1 = setTimeout(() => b.classList.add('out'), 1500);
+    b._t2 = setTimeout(() => { b.hidden = true; b.classList.remove('out'); }, 1800);
+  }
   const hintUsed = {};   // 스테이지마다 따로 주어지고 쌓이지 않는다
-  function hintsLeft(){ return maxHints(kind) - (hintUsed[levelIdx] || 0); }
+  function hintsLeft(){ return maxHints(kind) - (hintUsed[hintKey()] || 0); }
 
   function updateUI(){
-    $('lvl').textContent = '스테이지 ' + (levelIdx + 1) + ' / ' + TOTAL;
-    const dc = $('diff'); dc.hidden = kind !== 2; dc.textContent = KINDS[kind]; dc.className = 'chip k' + kind;
-    const hb = $('hint'); hb.textContent = '힌트 ' + hintsLeft() + '/' + maxHints(kind); hb.disabled = solved || hintsLeft() <= 0;
-    $('prev').disabled = levelIdx === 0;
-    $('next').disabled = !(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1;
-    $('next').classList.toggle('go', solved && levelIdx < TOTAL - 1);
+    const R = MODE === 'random';
+    $('lvlLab').textContent = R ? '랜덤' : '스테이지';
+    $('lvlN').textContent = R ? TIERNAME[rnd.tier] : levelIdx + 1;
+    $('lvlOf').textContent = R ? '난이도 ' + rating() : '/ ' + TOTAL;
+    const dc = $('diff'); dc.hidden = R || kind !== 2; dc.textContent = KINDS[kind]; dc.className = 'chip k' + kind;
+    $('hintTxt').textContent = '힌트 ' + hintsLeft() + '/' + maxHints(kind); $('hint').disabled = solved || hintsLeft() <= 0;
+    $('prev').disabled = R || levelIdx === 0;
+    $('pick').disabled = R;
+    $('nextTxt').textContent = R ? '새 판' : '다음';
+    $('next').disabled = R ? false : (!(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1);
+    $('next').classList.toggle('go', solved && (R || levelIdx < TOTAL - 1));
+    $('rbar').hidden = !R;
+    if (R){ const b = rs.best[rnd.tier]; $('rBest').textContent = b != null ? '최고 ' + fmtTime(b) : '최고 기록 없음'; }
     const done = paths.filter((_, c) => isComplete(c)).length;
     $('flows').textContent = '연결 ' + done + '/' + pairs.length;
-    const filled = paths.reduce((s, p) => s + p.length, 0);
-    $('fill').textContent = '채움 ' + Math.round(filled / (n * n) * 100) + '%';
+    const filled = paths.reduce((s, p) => s + p.length, 0), pct = Math.round(filled / (n * n) * 100);
+    $('fill').textContent = '채움 ' + pct + '%'; $('fillBar').style.width = pct + '%';
     if (!solved && done < pairs.length) $('msg').textContent = '';
   }
 
@@ -202,9 +276,9 @@ if (typeof document !== 'undefined') (function(){
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
 
   function fit(){
-    const top = cv.getBoundingClientRect().top, msgH = $('msg').offsetHeight + 8;
-    const availH = window.innerHeight - top - msgH - 14;
-    const availW = document.body.clientWidth - 32;
+    const wrap = cv.parentElement, top = wrap.getBoundingClientRect().top;
+    const availH = window.innerHeight - top - $('under').offsetHeight - 8 - 12 - 14;   // 아래 안내와 독, 간격, 판 테두리
+    const availW = $('app').clientWidth - 12;
     const side = Math.max(170, Math.min(availW * 0.94, 500, availH));
     boardCss = side;
     if (!(Math.abs(parseFloat(cv.style.width) - side) <= 0.5)){ cv.style.width = side + 'px'; cv.style.height = side + 'px'; }
@@ -218,12 +292,18 @@ if (typeof document !== 'undefined') (function(){
     if (t - lastT < ((active !== -1 || fxs.length) ? 16 : 66)) return;   // 그리는 중에는 부드럽게, 가만히 있을 때는 느리게
     const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
     if (!n) return;
+    if (MODE === 'random'){
+      const now = performance.now();
+      if (tm.running){ if (!document.hidden && !modalOpen()) tm.acc += Math.min(now - tm.last, 200); tm.last = now; }
+      const txt = fmtTime(tm.acc); if ($('rTime').textContent !== txt) $('rTime').textContent = txt;
+    }
     if (t - lastFit > 1000){ lastFit = t; fit(); }
     render(performance.now(), dt);
   }
   function render(t, dt){
+    if (!boardCss) fit();   // 판 크기를 먼저 정해 두지 않으면 캔버스가 매 프레임 커진다
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const px = Math.max(200, Math.round((boardCss || cv.clientWidth) * dpr));
+    const px = Math.min(2048, Math.max(200, Math.round(boardCss * dpr)));
     if (cv.width !== px){ cv.width = px; cv.height = px; }
     const W = cv.width, s = W / n, gap = Math.max(1.5, s * 0.035), R = s * 0.16, c = ctx;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, W);
@@ -325,7 +405,7 @@ if (typeof document !== 'undefined') (function(){
     let c = paths.findIndex((_, k) => isWrong(k)), fixed = c !== -1;
     if (!fixed) c = paths.findIndex((_, k) => !isComplete(k));
     if (c === -1) return;
-    hintUsed[levelIdx] = (hintUsed[levelIdx] || 0) + 1;
+    hintUsed[hintKey()] = (hintUsed[hintKey()] || 0) + 1;
     const line = sol[c].slice();
     paths[c] = line;
     // 정답 선이 지나가는 칸을 차지하고 있던 다른 선은 그 칸 앞에서 잘라 절대 겹치지 않게 한다
@@ -337,8 +417,9 @@ if (typeof document !== 'undefined') (function(){
   };
   $('reset').onclick = () => load(levelIdx);
   $('prev').onclick = () => load(levelIdx - 1);
-  $('next').onclick = () => { if (solved || levelIdx < unlocked) load(levelIdx + 1); };
+  $('next').onclick = () => { if (MODE === 'random'){ nextRandom(); return; } if (solved || levelIdx < unlocked) load(levelIdx + 1); };
   function buildSelect(){
+    $('selProg').textContent = Math.min(TOTAL, unlocked + 1) + ' / ' + TOTAL + ' 해금';
     const box = $('grid'); box.textContent = '';
     for (let i = 0; i < TOTAL; i++){
       const b = document.createElement('button');
@@ -353,7 +434,7 @@ if (typeof document !== 'undefined') (function(){
   $('closeSel').onclick = closeList;
   document.addEventListener('pointerdown', e => { if (!$('sel').hidden && !e.target.closest('#sel') && !e.target.closest('#pick')) closeList(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeList(); });
-  $('pick').onclick = () => { const s = $('sel'); if (!s.hidden && !s.classList.contains('out')){ closeModal(s); return; } buildSelect(); openModal(s); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); };
+  $('pick').onclick = () => { if (MODE === 'random') return; const s = $('sel'); if (!s.hidden && !s.classList.contains('out')){ closeModal(s); return; } buildSelect(); openModal(s); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); };
   document.addEventListener('pointerdown', e => {
     const b = e.target.closest && e.target.closest('button');
     if (!b || b.disabled) return;
@@ -379,7 +460,9 @@ if (typeof document !== 'undefined') (function(){
     MODES.forEach(m => { unlockedBy[m] = 0; }); unlocked = 0;
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     for (const k in hintUsed) delete hintUsed[k];
-    buildSelect(); load(0);
+    rs.seen = []; rs.best = {}; rs.played = 0; saveRandom();
+    buildSelect();
+    if (MODE === 'random'){ rTierShown = null; nextRandom(); } else load(0);
     $('msg').textContent = '처음부터 다시 시작해요';
   }
   function initSettings(){
@@ -397,11 +480,18 @@ if (typeof document !== 'undefined') (function(){
 
   document.querySelectorAll('#modes button[data-mode]').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
   applyMotion(reduceFx);
-  loadSave(); unlocked = unlockedBy[MODE];
-  renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
-  buildSelect(); load(unlocked);
+  loadSave(); loadRandom();
+  if (MODE === 'random'){
+    renderModes(); buildSelect(); nextRandom();
+  } else {
+    unlocked = unlockedBy[MODE];
+    renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
+    buildSelect(); load(unlocked);
+  }
   initSettings();
+  fit();
   new MutationObserver(() => { if ($('msg').textContent) kick($('msg'), 'msgpop'); }).observe($('msg'), { childList: true, characterData: true, subtree: true });
+  $('homeBtn').onclick = () => { document.body.classList.remove('in-game'); $('home').hidden = false; starting = false; };
   // PLAY: 0.7초 동안 까맣게 → "로딩중..." 1.6초 → 0.7초 동안 게임 화면이 서서히 나타난다 (모두 3초)
   let starting = false;
   $('playBtn').onclick = () => {
