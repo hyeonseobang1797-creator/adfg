@@ -27,7 +27,7 @@ const Bg = (() => {
     if (!s){ s = document.createElement('canvas'); s.width = s.height = size; const c = s.getContext('2d'); c.translate(size / 2, size / 2); fn(c); sprites.set(key, s); }
     return s;
   }
-  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let reduce = false;   // 모션 줄이기: 설정에서 정한다
   const rnd = (a, b) => a + Math.random() * (b - a);
   const lcg = seed => { let s = seed >>> 0; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; };
   const D = 1;   // 배경은 흐려도 괜찮으니 해상도를 1배로 고정해 폰이 버겁지 않게 한다
@@ -434,7 +434,8 @@ const Bg = (() => {
     cv.width = cvSky.width = W; cv.height = cvSky.height = H;
     buildScene();
   }
-  function set(s){
+  let firstSet = true, swapTimer = 0;
+  function apply(s){
     season = s;
     const c = SKY[s];
     document.body.style.background = 'linear-gradient(180deg,' + c[0] + ',' + c[1] + ' 55%,' + c[2] + ') fixed';
@@ -443,7 +444,24 @@ const Bg = (() => {
     cancelAnimationFrame(raf);
     if (reduce) frame(0); else { lastP = lastS = 0; raf = requestAnimationFrame(step); }
   }
+  // 계절이 바뀔 때는 풍경이 서서히 사라졌다가 새 풍경이 서서히 나타난다
+  function set(s){
+    const layers = [cvSky, scene, cv];
+    clearTimeout(swapTimer);
+    if (firstSet || reduce){ firstSet = false; layers.forEach(l => { l.style.transition = 'none'; l.style.opacity = '1'; }); apply(s); return; }
+    layers.forEach(l => { l.style.transition = 'opacity .22s ease'; l.style.opacity = '0'; });
+    swapTimer = setTimeout(() => {
+      apply(s);
+      requestAnimationFrame(() => layers.forEach(l => { l.style.transition = 'opacity .5s ease'; l.style.opacity = '1'; }));
+    }, 230);
+  }
+  function setReduce(on){
+    reduce = !!on;
+    if (!W) return;
+    cancelAnimationFrame(raf);
+    if (reduce) frame(0); else { lastP = lastS = 0; raf = requestAnimationFrame(step); }
+  }
   let rt = 0;
   window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { resize(); make(); if (reduce) frame(0); }, 180); });
-  return { set };
+  return { set, setReduce };
 })();

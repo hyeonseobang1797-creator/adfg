@@ -102,6 +102,28 @@
   #loadTxt .d{animation:blink 1.2s infinite;opacity:.2}
   #loadTxt .d:nth-child(2){animation-delay:.2s}#loadTxt .d:nth-child(3){animation-delay:.4s}
   @keyframes blink{40%{opacity:1}}
+  /* 부드러운 움직임: 창이 나타나고 사라지고, 판이 떠오르고, 안내 글이 나타난다 */
+  #settings:not([hidden]){animation:mIn .24s ease both}
+  #settings:not([hidden]) .box{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
+  #settings.out{animation:mOut .19s ease both}
+  #settings.out .box{animation:boxOut .19s ease both}
+  #sel:not([hidden]){animation:selIn .26s cubic-bezier(.2,.9,.3,1.1) both}
+  #sel.out{animation:selOut .19s ease both}
+  .stagein{animation:stageIn .38s cubic-bezier(.2,.9,.3,1.1) both}
+  .msgpop{animation:msgPop .35s ease both}
+  @keyframes mIn{from{opacity:0}to{opacity:1}}
+  @keyframes mOut{to{opacity:0}}
+  @keyframes boxIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+  @keyframes boxOut{to{opacity:0;transform:translateY(10px) scale(.97)}}
+  @keyframes selIn{from{opacity:0;transform:translate(-50%,-46%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+  @keyframes selOut{to{opacity:0;transform:translate(-50%,-47%) scale(.97)}}
+  @keyframes stageIn{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes msgPop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  #modes button.on,.stat{transition:background-color .25s ease,border-color .25s ease,color .25s ease}
+  /* 모션 줄이기: 모든 움직임을 끈다 */
+  .reduce *,.reduce *::before,.reduce *::after{animation-duration:.001ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.001ms!important;transition-delay:0s!important}
+  .reduce #playBtn{animation:none!important}
+  .reduce #loadTxt .d{animation:none!important;opacity:1}
 </style>
 </head>
 <body>
@@ -117,6 +139,7 @@
     <h2>설정</h2>
     <div class="srow"><span>배경음악</span><button type="button" id="tgMusic" class="sw" aria-pressed="true" aria-label="배경음악"></button></div>
     <div class="srow"><span>효과음</span><button type="button" id="tgSfx" class="sw" aria-pressed="true" aria-label="효과음"></button></div>
+    <div class="srow"><span>모션 줄이기</span><button type="button" id="tgMotion" class="sw" aria-pressed="false" aria-label="모션 줄이기"></button></div>
     <div class="srow"><span>진행 상황</span><button type="button" id="resetAll" class="danger">초기화</button></div>
     <div id="confirm" hidden>
       <p>정말 초기화 하시겠습니까?</p>

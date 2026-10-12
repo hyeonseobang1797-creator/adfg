@@ -26,7 +26,7 @@ if (typeof document !== 'undefined') (function(){
     paths = pairs.map(() => []);
     active = -1; moves = 0; solved = false;
     $('msg').textContent = '';
-    draw(); updateUI();
+    draw(); updateUI(); kick(cv, 'stagein');
   }
 
   function ownerAt(cell){
@@ -144,7 +144,27 @@ if (typeof document !== 'undefined') (function(){
   }
 
   // ---------------- 그리기: 윤기 있는 선, 반짝이는 점, 효과 ----------------
-  const reduceFx = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // 모션 줄이기: 저장된 선택이 있으면 그것을, 없으면 기기의 '동작 줄이기' 설정을 따른다
+  let reduceFx = (() => {
+    try { const v = localStorage.getItem('dotsMotion'); if (v === '1') return true; if (v === '0') return false; } catch (e) {}
+    return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  })();
+  function applyMotion(on){
+    reduceFx = !!on;
+    document.documentElement.classList.toggle('reduce', reduceFx);
+    if (reduceFx) fxs.length = 0;
+    Bg.setReduce(reduceFx);
+  }
+  // 창은 서서히 나타나고 사라진다 (모션 줄이기에서는 바로)
+  function openModal(el){ clearTimeout(el._ct); el.classList.remove('out'); el.hidden = false; }
+  function closeModal(el){
+    if (el.hidden || el.classList.contains('out')) return;
+    if (reduceFx){ el.hidden = true; return; }
+    el.classList.add('out');
+    el._ct = setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 190);
+  }
+  // 스테이지가 바뀌면 판이 살짝 떠오르고, 안내 글이 바뀌면 부드럽게 나타난다
+  function kick(el, cls){ if (reduceFx) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
   const cellsCv = document.createElement('canvas'); let cellsKey = '';
   const beadCache = new Map();
   // 구슬은 그림자와 빛 반사까지 한 번만 그려 두고 위치만 바꿔 찍는다
@@ -325,15 +345,15 @@ if (typeof document !== 'undefined') (function(){
       b.textContent = i + 1;
       b.className = 'k' + stageParams(i).kind + (i === levelIdx ? ' cur' : '') + (i < unlocked ? ' done' : '');
       b.disabled = i > unlocked;
-      b.onclick = () => { load(i); $('sel').hidden = true; };
+      b.onclick = () => { load(i); closeModal($('sel')); };
       box.appendChild(b);
     }
   }
-  const closeList = () => { $('sel').hidden = true; };
+  const closeList = () => closeModal($('sel'));
   $('closeSel').onclick = closeList;
   document.addEventListener('pointerdown', e => { if (!$('sel').hidden && !e.target.closest('#sel') && !e.target.closest('#pick')) closeList(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeList(); });
-  $('pick').onclick = () => { const s = $('sel'); s.hidden = !s.hidden; if (!s.hidden){ buildSelect(); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); } };
+  $('pick').onclick = () => { const s = $('sel'); if (!s.hidden && !s.classList.contains('out')){ closeModal(s); return; } buildSelect(); openModal(s); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); };
   document.addEventListener('pointerdown', e => {
     const b = e.target.closest && e.target.closest('button');
     if (!b || b.disabled) return;
@@ -354,7 +374,7 @@ if (typeof document !== 'undefined') (function(){
   function saveProgress(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(unlockedBy)); } catch (e) {} }
 
   // ---------------- 설정 ----------------
-  function paintSwitches(){ const s = Music.get(); $('tgMusic').setAttribute('aria-pressed', String(s.music)); $('tgSfx').setAttribute('aria-pressed', String(s.sfx)); }
+  function paintSwitches(){ const s = Music.get(); $('tgMusic').setAttribute('aria-pressed', String(s.music)); $('tgSfx').setAttribute('aria-pressed', String(s.sfx)); $('tgMotion').setAttribute('aria-pressed', String(reduceFx)); }
   function resetAll(){
     MODES.forEach(m => { unlockedBy[m] = 0; }); unlocked = 0;
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
@@ -363,30 +383,33 @@ if (typeof document !== 'undefined') (function(){
     $('msg').textContent = '처음부터 다시 시작해요';
   }
   function initSettings(){
-    const close = () => { $('settings').hidden = true; };
-    $('openSettings').onclick = () => { paintSwitches(); $('confirm').hidden = true; $('resetAll').hidden = false; $('settings').hidden = false; };
+    const close = () => closeModal($('settings'));
+    $('openSettings').onclick = () => { paintSwitches(); $('confirm').hidden = true; $('resetAll').hidden = false; openModal($('settings')); };
     $('closeSettings').onclick = close;
     $('settings').addEventListener('pointerdown', e => { if (e.target === $('settings')) close(); });
     $('tgMusic').onclick = () => { Music.setMusic(!Music.get().music); paintSwitches(); };
     $('tgSfx').onclick = () => { Music.setSfx(!Music.get().sfx); paintSwitches(); };
+    $('tgMotion').onclick = () => { applyMotion(!reduceFx); try { localStorage.setItem('dotsMotion', reduceFx ? '1' : '0'); } catch (e) {} paintSwitches(); };
     $('resetAll').onclick = () => { $('confirm').hidden = false; $('resetAll').hidden = true; };
     $('no').onclick = () => { $('confirm').hidden = true; $('resetAll').hidden = false; };
     $('yes').onclick = () => { resetAll(); close(); };
   }
 
   document.querySelectorAll('#modes button[data-mode]').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
+  applyMotion(reduceFx);
   loadSave(); unlocked = unlockedBy[MODE];
   renderModes(); Bg.set(SEASON[MODE]); Music.setMode(MODE);
   buildSelect(); load(unlocked);
   initSettings();
+  new MutationObserver(() => { if ($('msg').textContent) kick($('msg'), 'msgpop'); }).observe($('msg'), { childList: true, characterData: true, subtree: true });
   // PLAY: 0.7초 동안 까맣게 → "로딩중..." 1.6초 → 0.7초 동안 게임 화면이 서서히 나타난다 (모두 3초)
   let starting = false;
   $('playBtn').onclick = () => {
     if (starting) return; starting = true;
-    const fade = $('fade'), txt = $('loadTxt');
+    const fade = $('fade'), txt = $('loadTxt'), k = reduceFx ? [150, 900, 1000] : [700, 2150, 2300];
     fade.classList.add('on');
-    setTimeout(() => { txt.classList.add('show'); document.body.classList.add('in-game'); $('home').hidden = true; fit(); }, 700);
-    setTimeout(() => { txt.classList.remove('show'); }, 2150);
-    setTimeout(() => { fade.classList.remove('on'); }, 2300);
+    setTimeout(() => { txt.classList.add('show'); document.body.classList.add('in-game'); $('home').hidden = true; fit(); }, k[0]);
+    setTimeout(() => { txt.classList.remove('show'); }, k[1]);
+    setTimeout(() => { fade.classList.remove('on'); }, k[2]);
   };
 })();
