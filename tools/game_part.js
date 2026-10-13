@@ -472,7 +472,7 @@ if (typeof document !== 'undefined') (function(){
   function saveProgress(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(unlockedBy)); } catch (e) {} }
 
   // ---------------- 설정 ----------------
-  function paintSwitches(){ const s = Music.get(); $('tgMusic').setAttribute('aria-pressed', String(s.music)); $('tgSfx').setAttribute('aria-pressed', String(s.sfx)); $('tgMotion').setAttribute('aria-pressed', String(reduceFx)); }
+  function paintSwitches(){ const s = Music.get(); $('tgSfx').setAttribute('aria-pressed', String(s.sfx)); $('tgMotion').setAttribute('aria-pressed', String(reduceFx)); }
   function resetAll(){
     MODES.forEach(m => { unlockedBy[m] = 0; }); unlocked = 0;
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
@@ -494,7 +494,6 @@ if (typeof document !== 'undefined') (function(){
     $('closeRec').onclick = () => closeModal($('records'));
     $('records').addEventListener('pointerdown', e => { if (e.target === $('records')) closeModal($('records')); });
     $('settings').addEventListener('pointerdown', e => { if (e.target === $('settings')) close(); });
-    $('tgMusic').onclick = () => { Music.setMusic(!Music.get().music); paintSwitches(); };
     $('tgSfx').onclick = () => { Music.setSfx(!Music.get().sfx); paintSwitches(); };
     $('tgMotion').onclick = () => { applyMotion(!reduceFx); try { localStorage.setItem('dotsMotion', reduceFx ? '1' : '0'); } catch (e) {} paintSwitches(); };
     $('resetAll').onclick = () => { $('confirm').hidden = false; $('resetAll').hidden = true; };

@@ -66,7 +66,7 @@ const Music = (() => {
   }
 
   let ctx = null, master = null, sfxOut = null, cur = null, timer = 0, step = 0, nextT = 0, mode = 'easy', playing = false, st = { pos: 3 };
-  let musicOn = true, sfxOn = true;
+  let musicOn = false, sfxOn = true;
   try { const s = JSON.parse(localStorage.getItem('dotsSettings') || '{}'); if (s.music === false) musicOn = false; if (s.sfx === false) sfxOn = false; } catch (e) {}
   const saveSettings = () => { try { localStorage.setItem('dotsSettings', JSON.stringify({ music: musicOn, sfx: sfxOn })); } catch (e) {} };
   function ensure(){
