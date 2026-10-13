@@ -212,6 +212,7 @@ if (typeof document !== 'undefined') (function(){
   function updateUI(){
     const R = MODE === 'random';
     setT('lvlLab', R ? '랜덤' : '스테이지');
+    document.body.classList.toggle('rnd', !!R);
     setT('lvlN', R ? TIERNAME[rnd.band] : levelIdx + 1);
     setT('lvlOf', R ? '난이도 ' + rating() + ' · ' + n + '×' + n : '/ ' + TOTAL);
     setH('diff', R || kind !== 2); setT('diff', KINDS[kind]);

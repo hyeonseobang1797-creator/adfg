@@ -39,7 +39,9 @@
   @media (hover:hover){#openSettings:hover svg{transform:rotate(60deg)}}
   #openSettings:active svg{transform:rotate(60deg)}
   .ttl{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;text-shadow:0 2px 10px rgba(0,0,0,.6)}
-  #lvl{font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:5px}
+  #lvl{font-variant-numeric:tabular-nums;display:flex;align-items:baseline;justify-content:center;gap:5px;white-space:nowrap;max-width:100%}
+  .ttl{min-width:0}
+  body.rnd #lvl b{font-size:24px}body.rnd #lvl .of{font-size:11.5px}body.rnd #lvl .lab{font-size:11px;letter-spacing:.08em}
   #lvl .lab{font-size:12px;letter-spacing:.16em;color:var(--ink2);font-weight:600}
   #lvl b{font-size:30px;font-weight:800;letter-spacing:-.01em}
   #lvl .of{font-size:13px;color:var(--ink2);font-weight:600}
@@ -1139,6 +1141,7 @@ if (typeof document !== 'undefined') (function(){
   function updateUI(){
     const R = MODE === 'random';
     setT('lvlLab', R ? '랜덤' : '스테이지');
+    document.body.classList.toggle('rnd', !!R);
     setT('lvlN', R ? TIERNAME[rnd.band] : levelIdx + 1);
     setT('lvlOf', R ? '난이도 ' + rating() + ' · ' + n + '×' + n : '/ ' + TOTAL);
     setH('diff', R || kind !== 2); setT('diff', KINDS[kind]);
