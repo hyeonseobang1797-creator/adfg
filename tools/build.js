@@ -19,7 +19,7 @@ for (const p of PROFS){
 // 랜덤 모드에서 같은 판(돌리거나 뒤집어서 같은 것 포함)이 두 번 나오지 않도록, 겹치는 판 번호를 미리 뽑아 둔다.
 const decPaths = (n, enc) => enc.split(',').map(t => { const [s, d] = t.split(':'); const p = [+s]; for (const ch of d) p.push(p[p.length - 1] + (ch === 'R' ? 1 : ch === 'L' ? -1 : ch === 'D' ? n : -n)); return p; });
 const seenSig = new Set(), skip = [], rate = [];
-const MAXN = 15;   // 랜덤 모드는 15×15까지만
+const MAXN = 10;   // 랜덤 모드는 10×10까지만
 PROFS.forEach((p, ti) => sets[p].forEach((st, idx) => {
   const [ns, enc] = st.split('|'), n = +ns, sig = n + ':' + C.signature(n, decPaths(n, enc)), m = metas[p][idx];
   // 난이도 점수(1~100): 풀이에 필요한 가정 깊이와 판 크기를 반반씩 반영한다
