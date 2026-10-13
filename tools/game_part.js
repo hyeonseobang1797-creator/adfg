@@ -24,7 +24,7 @@ if (typeof document !== 'undefined') (function(){
   // ---------------- 랜덤 모드: 지금까지 풀지 않은 판 가운데 무작위로, 시간과 최고 기록과 함께 ----------------
   const RKEY = 'dotsRandom';
   const rs = { seen: [], best: {}, played: 0 };   // seen: 이미 나온 판, best: 난이도별 최고 기록(밀리초)
-  let rnd = { tier: 'easy', idx: 0, id: 0 }, rTierShown = null;
+  let rnd = { tier: 'easy', band: 'easy', idx: 0, id: 0 }, rTierShown = null;
   const tm = { running: false, acc: 0, last: 0 };
   function loadRandom(){
     try {
@@ -36,18 +36,24 @@ if (typeof document !== 'undefined') (function(){
   }
   function saveRandom(){ try { localStorage.setItem(RKEY, JSON.stringify(rs)); } catch (e) {} }
   const fmtTime = ms => { const s = ms / 1000; return s < 60 ? s.toFixed(1) + '초' : Math.floor(s / 60) + '분 ' + (s % 60).toFixed(1) + '초'; };
-  const rating = () => Math.min(100, Math.round(RTIERS.indexOf(rnd.tier) * 25 + 25 * rnd.idx / (TOTAL - 1)));
+  const bandOf = r => r <= RBANDS[0] ? 'easy' : r <= RBANDS[1] ? 'normal' : r <= RBANDS[2] ? 'hard' : 'extreme';
+  const rating = () => RRATE[rnd.id];
+  let lastBand = null;
   function pickRandom(){
     const seen = new Set(rs.seen), total = RTIERS.length * TOTAL;
-    let pool = [], reshuffled = false;
-    for (let id = 0; id < total; id++) if (!RSKIP.has(id) && !seen.has(id)) pool.push(id);
-    if (!pool.length){ rs.seen = []; reshuffled = true; for (let id = 0; id < total; id++) if (!RSKIP.has(id)) pool.push(id); }
-    const id = pool[Math.floor(Math.random() * pool.length)];
-    rs.seen.push(id); rs.played++; saveRandom();
-    return { id, tier: RTIERS[Math.floor(id / TOTAL)], idx: id % TOTAL, reshuffled };
+    let reshuffled = false;
+    const build = ex => { const g = { easy: [], normal: [], hard: [], extreme: [] };
+      for (let id = 0; id < total; id++) if (!RSKIP.has(id) && !(ex && seen.has(id))) g[bandOf(RRATE[id])].push(id); return g; };
+    let g = build(true), bands = Object.keys(g).filter(k => g[k].length);
+    if (!bands.length){ rs.seen = []; reshuffled = true; g = build(false); bands = Object.keys(g).filter(k => g[k].length); }
+    const alt = bands.filter(k => k !== lastBand); if (alt.length) bands = alt;
+    const band = bands[Math.floor(Math.random() * bands.length)], arr = g[band];
+    const id = arr[Math.floor(Math.random() * arr.length)];
+    lastBand = band; rs.seen.push(id); rs.played++; saveRandom();
+    return { id, band, src: RTIERS[Math.floor(id / TOTAL)], idx: id % TOTAL, reshuffled };
   }
   function nextRandom(){
-    const p = pickRandom(); rnd = { id: p.id, tier: p.tier, idx: p.idx };
+    const p = pickRandom(); rnd = { id: p.id, band: p.band, tier: p.src, idx: p.idx };
     renderModes(); load(0);
     if (p.reshuffled) $('msg').textContent = '모든 판을 풀어서 다시 섞었어요';
   }
@@ -59,7 +65,7 @@ if (typeof document !== 'undefined') (function(){
     let lv;
     if (MODE === 'random'){
       levelIdx = rnd.idx; lv = makeLevel(rnd.idx, rnd.tier);
-      if (rTierShown !== rnd.tier){ rTierShown = rnd.tier; Bg.set(SEASON[rnd.tier]); Music.setMode(rnd.tier); }
+      if (rTierShown !== rnd.band){ rTierShown = rnd.band; Bg.set(SEASON[rnd.band]); Music.setMode(rnd.band); }
     } else {
       levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
       lv = makeLevel(levelIdx);
@@ -166,14 +172,14 @@ if (typeof document !== 'undefined') (function(){
     solved = true; showClear(); fxConfetti(); Sfx.clear(); buzz([20, 50, 20, 50, 40]);
     if (MODE === 'random'){
       tm.running = false;
-      const t = Math.round(tm.acc), used = (hintUsed[hintKey()] || 0) > 0, prev = rs.best[rnd.tier];
+      const t = Math.round(tm.acc), used = (hintUsed[hintKey()] || 0) > 0, prev = rs.best[rnd.band];
       let newRec = false;
-      if (!used && (prev == null || t < prev)){ rs.best[rnd.tier] = t; newRec = true; }
+      if (!used && (prev == null || t < prev)){ rs.best[rnd.band] = t; newRec = true; }
       saveRandom();
       $('msg').textContent = used ? '클리어! ' + fmtTime(t) + ' (힌트를 써서 기록에서 제외)' : newRec ? '신기록! ' + fmtTime(t) : '클리어! ' + fmtTime(t) + ' (최고 ' + fmtTime(prev) + ')';
-      $('cbStage').textContent = TIERNAME[rnd.tier] + ' · ' + fmtTime(t) + (newRec ? ' · 신기록!' : '');
+      $('cbStage').textContent = TIERNAME[rnd.band] + ' · 난이도 ' + rating() + ' · ' + fmtTime(t) + (newRec ? ' · 신기록!' : '');
       const cid = rnd.id;
-      setTimeout(() => { if (solved && MODE === 'random' && rnd.id === cid) nextRandom(); }, 2800);
+      setTimeout(() => { if (solved && MODE === 'random' && rnd.id === cid) nextRandom(); }, 3400);
       updateUI();
       return;
     }
@@ -204,8 +210,8 @@ if (typeof document !== 'undefined') (function(){
   function updateUI(){
     const R = MODE === 'random';
     setT('lvlLab', R ? '랜덤' : '스테이지');
-    setT('lvlN', R ? TIERNAME[rnd.tier] : levelIdx + 1);
-    setT('lvlOf', R ? '난이도 ' + rating() : '/ ' + TOTAL);
+    setT('lvlN', R ? TIERNAME[rnd.band] : levelIdx + 1);
+    setT('lvlOf', R ? '난이도 ' + rating() + ' · ' + n + '×' + n : '/ ' + TOTAL);
     setH('diff', R || kind !== 2); setT('diff', KINDS[kind]);
     { const dc = $('diff'), cn = 'chip k' + kind; if (dc.className !== cn) dc.className = cn; }
     setT('hintTxt', '힌트 ' + hintsLeft() + '/' + maxHints(kind)); setD('hint', solved || hintsLeft() <= 0);
@@ -215,7 +221,7 @@ if (typeof document !== 'undefined') (function(){
     setD('next', R ? false : (!(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1));
     { const go = solved && (R || levelIdx < TOTAL - 1), nx = $('next'); if (nx.classList.contains('go') !== go) nx.classList.toggle('go', go); }
     setH('rbar', !R);
-    if (R){ const b = rs.best[rnd.tier]; setT('rBest', b != null ? '최고 ' + fmtTime(b) : '최고 기록 없음'); }
+    if (R){ const b = rs.best[rnd.band]; setT('rBest', b != null ? '최고 ' + fmtTime(b) : '최고 기록 없음'); }
     const done = paths.filter((_, c) => isComplete(c)).length;
     setT('flows', '연결 ' + done + '/' + pairs.length);
     const filled = paths.reduce((s, p) => s + p.length, 0), pct = Math.round(filled / (n * n) * 100);
