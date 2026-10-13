@@ -4,6 +4,8 @@ if (typeof document !== 'undefined') (function(){
   const ctx = cv.getContext('2d');
   const $ = id => document.getElementById(id);
   let levelIdx = 0, n, sol, pairs, endOf, paths, active = -1, moves = 0, solved = false, kind = 0;
+  let cheat = false;   // 설정에서 코드를 넣으면 이번 접속 동안만 스킵이 켜진다 (저장하지 않음)
+  const reach = () => cheat ? TOTAL - 1 : unlocked;
   let unlocked = 0;   // 현재 난이도에서 연 스테이지. 로그아웃 상태에서는 저장하지 않는다
   const unlockedBy = { easy: 0, normal: 0, hard: 0, extreme: 0 };
   const MODES = ['easy', 'normal', 'hard', 'extreme'];
@@ -68,7 +70,7 @@ if (typeof document !== 'undefined') (function(){
       levelIdx = rnd.idx; lv = makeLevel(rnd.idx, rnd.tier);
       if (rTierShown !== rnd.band){ rTierShown = rnd.band; Bg.set(SEASON[rnd.band]); Music.setMode(rnd.band); }
     } else {
-      levelIdx = Math.max(0, Math.min(Math.min(idx, unlocked), TOTAL - 1));
+      levelIdx = Math.max(0, Math.min(Math.min(idx, reach()), TOTAL - 1));
       lv = makeLevel(levelIdx);
     }
     n = lv.n; pairs = lv.pairs; sol = lv.sol; kind = lv.kind;
@@ -186,7 +188,7 @@ if (typeof document !== 'undefined') (function(){
       return;
     }
     $('msg').textContent = levelIdx + 1 >= TOTAL ? '🏆 전체 클리어!' : '🎉 클리어! 잠시 후 다음 스테이지로 넘어가요';
-    if (levelIdx + 1 > unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; unlockedBy[MODE] = unlocked; saveProgress(); }
+    if (levelIdx === unlocked && levelIdx + 1 < TOTAL){ unlocked = levelIdx + 1; unlockedBy[MODE] = unlocked; saveProgress(); }
     buildSelect();
     if (levelIdx + 1 < TOTAL){
       const cleared = levelIdx;
@@ -220,8 +222,8 @@ if (typeof document !== 'undefined') (function(){
     setT('hintTxt', '힌트 ' + hintsLeft() + '/' + maxHints(kind)); setD('hint', solved || hintsLeft() <= 0);
     setD('prev', R || levelIdx === 0);
     setD('pick', R);
-    setT('nextTxt', R ? '새 판' : '다음');
-    setD('next', R ? false : (!(solved || levelIdx < unlocked) || levelIdx >= TOTAL - 1));
+    setT('nextTxt', R ? '새 판' : cheat && !(solved || levelIdx < unlocked) ? '스킵' : '다음');
+    setD('next', R ? false : (!(solved || levelIdx < reach()) || levelIdx >= TOTAL - 1));
     { const go = solved && (R || levelIdx < TOTAL - 1), nx = $('next'); if (nx.classList.contains('go') !== go) nx.classList.toggle('go', go); }
     setH('rbar', !R);
     if (R){ const b = rs.best[rnd.band]; setT('rBest', b != null ? '최고 ' + fmtTime(b) : '최고 기록 없음'); }
@@ -435,7 +437,7 @@ if (typeof document !== 'undefined') (function(){
   };
   $('reset').onclick = () => load(levelIdx);
   $('prev').onclick = () => load(levelIdx - 1);
-  $('next').onclick = () => { if (MODE === 'random'){ nextRandom(); return; } if (solved || levelIdx < unlocked) load(levelIdx + 1); };
+  $('next').onclick = () => { if (MODE === 'random'){ nextRandom(); return; } if (solved || levelIdx < reach()) load(levelIdx + 1); };
   function buildSelect(){
     $('selProg').textContent = Math.min(TOTAL, unlocked + 1) + ' / ' + TOTAL + ' 해금';
     const box = $('grid'); box.textContent = '';
@@ -443,7 +445,7 @@ if (typeof document !== 'undefined') (function(){
       const b = document.createElement('button');
       b.textContent = i + 1;
       b.className = 'k' + stageParams(i).kind + (i === levelIdx ? ' cur' : '') + (i < unlocked ? ' done' : '');
-      b.disabled = i > unlocked;
+      b.disabled = i > reach();
       b.onclick = () => { load(i); closeModal($('sel')); };
       box.appendChild(b);
     }
@@ -487,6 +489,13 @@ if (typeof document !== 'undefined') (function(){
     const close = () => closeModal($('settings'));
     $('openSettings').onclick = () => { paintSwitches(); $('confirm').hidden = true; $('resetAll').hidden = false; openModal($('settings')); };
     $('closeSettings').onclick = close;
+    const paintCode = () => { $('codeMsg').textContent = cheat ? '스테이지 스킵이 켜졌어요 (나가면 해제)' : ''; $('codeIn').value = ''; };
+    $('codeBtn').onclick = () => {
+      const v = $('codeIn').value.trim();
+      if (v === 'Bang8888@'){ cheat = true; paintCode(); buildSelect(); updateUI(); close(); $('msg').textContent = '스킵 모드: 다음 버튼으로 어느 스테이지든 넘어갈 수 있어요'; }
+      else { $('codeMsg').textContent = '코드가 올바르지 않아요'; }
+    };
+    $('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('codeBtn').click(); e.stopPropagation(); });
     $('recBtn').onclick = () => {
       const rows = ['easy', 'normal', 'hard', 'extreme'].map(k => '<div class="srow"><div class="l">' + TIERNAME[k] + '</div><div style="text-align:right;font-variant-numeric:tabular-nums">' + (rs.best[k] != null ? fmtTime(rs.best[k]) : '-') + '<div style="font-size:11px;color:var(--muted);font-weight:600">' + (rs.solved[k] || 0) + '판 클리어</div></div></div>').join('');
       $('recBody').innerHTML = rows + '<p class="hint" style="margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center">힌트를 쓰지 않은 클리어만 기록돼요</p>';
@@ -515,7 +524,7 @@ if (typeof document !== 'undefined') (function(){
   initSettings();
   fit();
   new MutationObserver(() => { if ($('msg').textContent) kick($('msg'), 'msgpop'); }).observe($('msg'), { childList: true, characterData: true, subtree: true });
-  $('homeBtn').onclick = () => { document.body.classList.remove('in-game'); $('home').hidden = false; starting = false; };
+  $('homeBtn').onclick = () => { if (cheat){ cheat = false; $('codeMsg').textContent = ''; load(Math.min(levelIdx, unlocked)); buildSelect(); } document.body.classList.remove('in-game'); $('home').hidden = false; starting = false; };
   // PLAY: 0.7초 동안 까맣게 → "로딩중..." 1.6초 → 0.7초 동안 게임 화면이 서서히 나타난다 (모두 3초)
   let starting = false;
   $('playBtn').onclick = () => {
