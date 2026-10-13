@@ -141,10 +141,10 @@
   @keyframes blink{40%{opacity:1}}
 
   /* 부드러운 움직임 */
-  #settings:not([hidden]){animation:mIn .24s ease both}
-  #settings:not([hidden]) .panel{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
-  #settings.out{animation:mOut .19s ease both}
-  #settings.out .panel{animation:boxOut .19s ease both}
+  #settings:not([hidden]),#records:not([hidden]){animation:mIn .24s ease both}
+  #settings:not([hidden]) .panel,#records:not([hidden]) .panel{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
+  #settings.out,#records.out{animation:mOut .19s ease both}
+  #settings.out .panel,#records.out .panel{animation:boxOut .19s ease both}
   #sel:not([hidden]){animation:selIn .26s cubic-bezier(.2,.9,.3,1.1) both}
   #sel.out{animation:selOut .19s ease both}
   .stagein{animation:stageIn .38s cubic-bezier(.2,.9,.3,1.1) both}
@@ -210,7 +210,7 @@
   <div class="stats" id="rbar" hidden>
     <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="rTime">0.0초</span></div>
     <div style="flex:1"></div>
-    <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M9 20h6M10 17h4"/></svg><span id="rBest">최고 -</span></div>
+    <button type="button" class="chip" id="recBtn" aria-label="내 기록" style="min-height:0"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M9 20h6M10 17h4"/></svg><span id="rBest">최고 -</span></button>
   </div>
   <div class="boardwrap"><canvas id="c" width="520" height="520"></canvas></div>
   <div class="under" id="under">
@@ -222,6 +222,13 @@
       <button type="button" class="dk" id="pick" aria-label="스테이지 목록"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><span>목록</span></button>
       <button type="button" class="dk" id="next" aria-label="다음 스테이지"><svg class="ic" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg><span id="nextTxt">다음</span></button>
     </nav>
+  </div>
+</div>
+
+<div id="records" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="내 기록" style="width:min(100%,360px)">
+    <div class="phead"><h2>랜덤 모드 기록</h2><button type="button" id="closeRec" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="body" id="recBody" style="padding:2px 18px 18px;display:flex;flex-direction:column;gap:6px"></div>
   </div>
 </div>
 

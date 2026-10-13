@@ -23,7 +23,7 @@ if (typeof document !== 'undefined') (function(){
 
   // ---------------- 랜덤 모드: 지금까지 풀지 않은 판 가운데 무작위로, 시간과 최고 기록과 함께 ----------------
   const RKEY = 'dotsRandom';
-  const rs = { seen: [], best: {}, played: 0 };   // seen: 이미 나온 판, best: 난이도별 최고 기록(밀리초)
+  const rs = { seen: [], best: {}, played: 0, solved: {} };   // seen: 이미 나온 판, best: 난이도별 최고 기록(밀리초)
   let rnd = { tier: 'easy', band: 'easy', idx: 0, id: 0 }, rTierShown = null;
   const tm = { running: false, acc: 0, last: 0 };
   function loadRandom(){
@@ -32,6 +32,7 @@ if (typeof document !== 'undefined') (function(){
       rs.seen = Array.isArray(o.seen) ? o.seen.filter(Number.isInteger) : [];
       rs.best = o.best && typeof o.best === 'object' ? o.best : {};
       rs.played = +o.played || 0;
+      rs.solved = o.solved && typeof o.solved === 'object' ? o.solved : {};
     } catch (e) {}
   }
   function saveRandom(){ try { localStorage.setItem(RKEY, JSON.stringify(rs)); } catch (e) {} }
@@ -58,7 +59,7 @@ if (typeof document !== 'undefined') (function(){
     if (p.reshuffled) $('msg').textContent = '모든 판을 풀어서 다시 섞었어요';
   }
   const hintKey = () => MODE === 'random' ? 'r' + rnd.id : levelIdx;
-  const modalOpen = () => !$('settings').hidden || !$('sel').hidden;
+  const modalOpen = () => !$('settings').hidden || !$('sel').hidden || !$('records').hidden;
 
   function load(idx){
     { const cb = $('clearBanner'); clearTimeout(cb._t1); clearTimeout(cb._t2); cb.hidden = true; cb.classList.remove('out'); }
@@ -175,7 +176,8 @@ if (typeof document !== 'undefined') (function(){
       const t = Math.round(tm.acc), used = (hintUsed[hintKey()] || 0) > 0, prev = rs.best[rnd.band];
       let newRec = false;
       if (!used && (prev == null || t < prev)){ rs.best[rnd.band] = t; newRec = true; }
-      saveRandom();
+      rs.solved[rnd.band] = (rs.solved[rnd.band] || 0) + 1; saveRandom();
+      if (newRec){ Sfx.record(); fxConfetti(); setTimeout(fxConfetti, 350); buzz([30, 60, 30, 60, 30, 60, 80]); }
       $('msg').textContent = used ? '클리어! ' + fmtTime(t) + ' (힌트를 써서 기록에서 제외)' : newRec ? '신기록! ' + fmtTime(t) : '클리어! ' + fmtTime(t) + ' (최고 ' + fmtTime(prev) + ')';
       $('cbStage').textContent = TIERNAME[rnd.band] + ' · 난이도 ' + rating() + ' · ' + fmtTime(t) + (newRec ? ' · 신기록!' : '');
       const cid = rnd.id;
@@ -475,7 +477,7 @@ if (typeof document !== 'undefined') (function(){
     MODES.forEach(m => { unlockedBy[m] = 0; }); unlocked = 0;
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     for (const k in hintUsed) delete hintUsed[k];
-    rs.seen = []; rs.best = {}; rs.played = 0; saveRandom();
+    rs.seen = []; rs.best = {}; rs.played = 0; rs.solved = {}; saveRandom();
     buildSelect();
     if (MODE === 'random'){ rTierShown = null; nextRandom(); } else load(0);
     $('msg').textContent = '처음부터 다시 시작해요';
@@ -484,6 +486,13 @@ if (typeof document !== 'undefined') (function(){
     const close = () => closeModal($('settings'));
     $('openSettings').onclick = () => { paintSwitches(); $('confirm').hidden = true; $('resetAll').hidden = false; openModal($('settings')); };
     $('closeSettings').onclick = close;
+    $('recBtn').onclick = () => {
+      const rows = ['easy', 'normal', 'hard', 'extreme'].map(k => '<div class="srow"><div class="l">' + TIERNAME[k] + '</div><div style="text-align:right;font-variant-numeric:tabular-nums">' + (rs.best[k] != null ? fmtTime(rs.best[k]) : '-') + '<div style="font-size:11px;color:var(--muted);font-weight:600">' + (rs.solved[k] || 0) + '판 클리어</div></div></div>').join('');
+      $('recBody').innerHTML = rows + '<p class="hint" style="margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center">힌트를 쓰지 않은 클리어만 기록돼요</p>';
+      openModal($('records'));
+    };
+    $('closeRec').onclick = () => closeModal($('records'));
+    $('records').addEventListener('pointerdown', e => { if (e.target === $('records')) closeModal($('records')); });
     $('settings').addEventListener('pointerdown', e => { if (e.target === $('settings')) close(); });
     $('tgMusic').onclick = () => { Music.setMusic(!Music.get().music); paintSwitches(); };
     $('tgSfx').onclick = () => { Music.setSfx(!Music.get().sfx); paintSwitches(); };

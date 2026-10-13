@@ -135,6 +135,7 @@ const Sfx = (() => {
     clear(){ Music.sfx((c, o, t) => { [72, 76, 79, 84, 88, 91].forEach((m, k) => { tn(c, o, 'sine', mtof(m), t + k * 0.09, 0.7, 0.12, 0.006); tn(c, o, 'triangle', mtof(m) * 2, t + k * 0.09, 0.35, 0.04, 0.006); }); }); },
     click(){ Music.sfx((c, o, t) => { tn(c, o, 'sine', 880, t, 0.06, 0.05, 0.002); tn(c, o, 'sine', 1320, t + 0.01, 0.05, 0.02, 0.002); }); },
     cut(){ Music.sfx((c, o, t) => { tn(c, o, 'sine', 170, t, 0.12, 0.09, 0.004); }); },
+    record(){ Music.sfx((c, o, t) => { [76, 79, 83, 88, 91, 95, 100].forEach((m, k) => { tn(c, o, 'sine', mtof(m), t + 0.5 + k * 0.07, 0.8, 0.1, 0.006); tn(c, o, 'triangle', mtof(m) * 2, t + 0.5 + k * 0.07, 0.4, 0.035, 0.006); }); }); },
     hint(){ Music.sfx((c, o, t) => { [88, 91, 95].forEach((m, k) => tn(c, o, 'sine', mtof(m), t + k * 0.06, 0.5, 0.06, 0.005)); }); }
   };
 })();
