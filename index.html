@@ -1062,8 +1062,8 @@ const DotsP2P = (() => {
       name: 'p2p',
       emit: async (topic, data) => {
         const copy = JSON.parse(JSON.stringify(data === undefined ? null : data));
-        deliver(topic, copy, selfId);
         if (isHost) sendAll({ k: 'ev', topic, data: copy, peer: selfId }); else { try { hostConn.send({ k: 'ev', topic, data: copy }); } catch (e) {} }
+        setTimeout(() => { if (!dead) deliver(topic, copy, selfId); }, 0);
       },
       on: (topic, f) => { (evh[topic] = evh[topic] || []).push(f); return () => { evh[topic] = (evh[topic] || []).filter(x => x !== f); }; },
       presence: async patch => {
@@ -1234,7 +1234,7 @@ if (typeof document !== 'undefined') (function(){
       paths[c] = paths[c].slice(0, i + 1);
       active = c; moves++;
     }
-    draw(); updateUI(); if (mp.on) mpSt(true);
+    draw(); updateUI(); if (mp.on) mpLine(active, true);
   }
 
   function stepTo(cell){
@@ -1275,14 +1275,15 @@ if (typeof document !== 'undefined') (function(){
       if (nh === head && q.length === before) break;
       head = nh;
     }
-    draw(); uiSoon(); if (mp.on) mpSt();
+    draw(); uiSoon(); if (mp.on) mpLine(active);
   }
 
   function end(){
     if (active === -1) return;
+    const done = active;
     active = -1;
     checkWin();
-    draw(); updateUI(); if (mp.on) mpSt(true);
+    draw(); updateUI(); if (mp.on) mpLine(done, true);
   }
 
   function checkWin(){
@@ -1616,6 +1617,36 @@ if (typeof document !== 'undefined') (function(){
     const d = decPaths(a); if (!d) return;
     paths = d; draw(); updateUI(); checkWin();
   }
+  // 같이 그리기: 내가 긋는 선 하나만 보낸다. 받은 쪽은 그 선을 놓고, 겹치는 다른 선은 자른다 (내가 긋는 선과 겹치면 내 선이 우선)
+  function decLine(c, s){
+    if (!Number.isInteger(c) || c < 0 || c >= pairs.length || typeof s !== 'string' || s.length > 700) return null;
+    const p = s ? s.split('.').map(Number) : [];
+    if (!p.every((x, i) => Number.isInteger(x) && x >= 0 && x < n * n && (i === 0 || neighbors(p[i - 1], n).includes(x)))) return null;
+    if (p.length && endOf[p[0]] !== c) return null;
+    const out = [];
+    for (const x of p){ if (endOf[x] !== -1 && endOf[x] !== c) break; if (out.includes(x)) break; out.push(x); }
+    return out;
+  }
+  function applyLine(c, s){
+    if (solved) return;
+    let p = decLine(c, s); if (!p) return;
+    mp.lastIn = performance.now();
+    if (active === c) return;
+    if (active !== -1){ const mine = new Set(paths[active]); const j = p.findIndex(x => mine.has(x)); if (j !== -1) p = p.slice(0, j); }
+    paths[c] = p;
+    const on = new Set(p);
+    paths.forEach((q, k) => { if (k !== c && k !== active){ const j = q.findIndex(x => on.has(x)); if (j !== -1) paths[k] = q.slice(0, j); } });
+    draw(); updateUI(); if (active === -1) checkWin();
+  }
+  function mpLine(c, force){
+    if (!mp.on || c < 0) return;
+    mp.lastIn = performance.now();
+    (mp.pend = mp.pend || new Set()).add(c);
+    const flush = () => { mp.lastLn = performance.now(); const cs = [...mp.pend]; mp.pend.clear(); cs.forEach(k => { if (paths[k]) mpEmit('ln', { c: k, p: paths[k].join('.') }); }); };
+    clearTimeout(mp.lnT);
+    if (force){ flush(); return; }
+    mp.lnT = setTimeout(flush, Math.max(0, 80 - (performance.now() - (mp.lastLn || 0))));
+  }
   function mpSt(force){
     if (!mp.on) return;
     clearTimeout(mp.stT);
@@ -1667,9 +1698,11 @@ if (typeof document !== 'undefined') (function(){
         break;
       }
       case 'st': if (d.ser === mp.ser && !solved) adoptPaths(d.p); break;
+      case 'ln': if (d.ser === mp.ser) applyLine(d.c, d.p); break;
+      case 'sy': if (d.ser === mp.ser && !solved && active === -1 && performance.now() - (mp.lastIn || 0) > 2500 && Array.isArray(d.p) && JSON.stringify(d.p) !== JSON.stringify(encPaths())) adoptPaths(d.p); break;
       case 'ch':
         if (d.ser !== mp.ser) return;
-        if (d.v === 'stop') mpTerminate('상대가 그만하기를 눌러서 방이 사라졌어요');
+        if (d.v === 'stop'){ if (!m.sameTab) mpTerminate('상대가 그만하기를 눌러서 방이 사라졌어요'); }
         else if (d.v === 'go'){ mp.go.add(m.peer); mpEndUpdate(); mpTryNext(); }
         break;
     }
@@ -1711,12 +1744,12 @@ if (typeof document !== 'undefined') (function(){
     const me = mpMe(); if (me) mp.go.add(me);
     mpEmit('ch', { v: 'go' }); mpEndUpdate(); mpTryNext();
   };
-  $('mpStop').onclick = () => { mpEmit('ch', { v: 'stop' }); setTimeout(() => mpTerminate('그만하기를 눌러서 방이 사라졌어요'), 700); };
+  $('mpStop').onclick = () => { mp.stopping = true; mpEmit('ch', { v: 'stop' }); setTimeout(() => mpTerminate('그만하기를 눌러서 방이 사라졌어요'), 700); };
 
   function mpClose(){
-    clearTimeout(mp.stT); clearTimeout(mp.endT);
+    clearTimeout(mp.stT); clearTimeout(mp.endT); clearTimeout(mp.lnT); clearInterval(mp.syT);
     mp.unsubs.forEach(f => { try { f(); } catch (e) {} }); mp.unsubs = [];
-    const nr = mp.nr; mp.nr = null; mp.on = false; mp.ser = 0; mp.seen = []; mp.go.clear(); mp.myPeer = null;
+    const nr = mp.nr; mp.nr = null; mp.on = false; mp.stopping = false; mp.ser = 0; mp.seen = []; mp.go.clear(); mp.myPeer = null;
     if (nr) try { nr.leave().catch(() => {}); } catch (e) {}
     closeModal($('mpEnd'));
   }
@@ -1751,7 +1784,8 @@ if (typeof document !== 'undefined') (function(){
     mp.nr = nr; mp.on = true; mp.code = code; mp.band = band || 'easy'; mp.ser = 0; mp.seen = []; mp.go.clear();
     mp.unsubs.push(nr.on('mp', onMp, () => {}));
     mp.unsubs.push(nr.onPeers(mpPeersChanged, () => {}));
-    if (nr.onClose) mp.unsubs.push(nr.onClose(() => { if (!mp.on) return; if (MODE === 'multi') mpTerminate('방장이 나가서 방이 사라졌어요'); else mpClose(); }));
+    mp.syT = setInterval(() => { if (mp.on && mp.ser > 0 && !solved && active === -1 && mpHost() && performance.now() - (mp.lastIn || 0) > 2500) mpEmit('sy', { p: encPaths() }); }, 3000);
+    if (nr.onClose) mp.unsubs.push(nr.onClose(() => { if (!mp.on) return; if (MODE === 'multi') mpTerminate(mp.stopping ? '그만하기를 눌러서 방이 사라졌어요' : '방장이 나가서 방이 사라졌어요'); else mpClose(); }));
     return { nr };
   }
   const genCode = () => String(100000000 + Math.floor(Math.random() * 900000000));

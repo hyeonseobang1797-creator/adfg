@@ -60,8 +60,8 @@ const DotsP2P = (() => {
       name: 'p2p',
       emit: async (topic, data) => {
         const copy = JSON.parse(JSON.stringify(data === undefined ? null : data));
-        deliver(topic, copy, selfId);
         if (isHost) sendAll({ k: 'ev', topic, data: copy, peer: selfId }); else { try { hostConn.send({ k: 'ev', topic, data: copy }); } catch (e) {} }
+        setTimeout(() => { if (!dead) deliver(topic, copy, selfId); }, 0);
       },
       on: (topic, f) => { (evh[topic] = evh[topic] || []).push(f); return () => { evh[topic] = (evh[topic] || []).filter(x => x !== f); }; },
       presence: async patch => {
