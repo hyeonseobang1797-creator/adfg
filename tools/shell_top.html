@@ -115,7 +115,7 @@
   #clearBanner .stars{font-size:26px;letter-spacing:.2em;color:#ffd66b;text-shadow:0 0 16px rgba(255,214,107,.7)}
   #clearBanner .cbt{font-size:40px;font-weight:900;letter-spacing:.08em;background:linear-gradient(90deg,#6df0a8,#6b9bff);-webkit-background-clip:text;background-clip:text;color:transparent}
   #clearBanner .cbs{font-size:14px;color:var(--ink2);font-weight:600;margin-top:2px}
-  #clearBanner:not([hidden]) .cb{animation:cbIn .5s cubic-bezier(.2,.9,.3,1.25) both}
+  #clearBanner:not([hidden]) .cb{animation:cbIn .5s cubic-bezier(.2,.9,.3,1.25) .3s both}
   #clearBanner.out .cb{animation:cbOut .3s ease both}
   @keyframes cbIn{from{opacity:0;transform:scale(.6) translateY(20px)}to{opacity:1;transform:none}}
   @keyframes cbOut{to{opacity:0;transform:scale(.95) translateY(-8px)}}
@@ -150,6 +150,8 @@
   #sel:not([hidden]){animation:selIn .26s cubic-bezier(.2,.9,.3,1.1) both}
   #sel.out{animation:selOut .19s ease both}
   .stagein{animation:stageIn .38s cubic-bezier(.2,.9,.3,1.1) both}
+  .boardwrap.pop{animation:boardPop .75s cubic-bezier(.2,.8,.3,1) both}
+  @keyframes boardPop{0%{transform:none;box-shadow:0 14px 36px rgba(0,0,0,.5)}35%{transform:scale(1.025);box-shadow:0 14px 44px rgba(0,0,0,.5),0 0 38px rgba(255,224,138,.55)}100%{transform:none;box-shadow:0 14px 36px rgba(0,0,0,.5)}}
   .msgpop{animation:msgPop .35s ease both}
   @keyframes mIn{from{opacity:0}to{opacity:1}}
   @keyframes mOut{to{opacity:0}}
