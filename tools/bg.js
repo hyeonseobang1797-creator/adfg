@@ -1,10 +1,10 @@
 // ---------------- 계절 배경 ----------------
 const SEASON = { easy: 'summer', normal: 'spring', hard: 'autumn', extreme: 'winter' };
 const SKY = {
-  summer: ['#0a3f66', '#2a8fbf', '#8fd3e0'],
-  spring: ['#3b2f66', '#a8628f', '#f2b8c0'],
-  autumn: ['#241528', '#9a4a2c', '#f0a050'],
-  winter: ['#040a1a', '#0e2250', '#34609a']
+  summer: ['#1f6fc4', '#6fb8ea', '#dff3fb'],
+  spring: ['#5f9ede', '#b9d8ef', '#fde9e4'],
+  autumn: ['#3a4f86', '#d9895a', '#ffd69c'],
+  winter: ['#050d24', '#17356b', '#5f88c0']
 };
 const Bg = (() => {
   // 세 장의 캔버스를 겹친다: 하늘(느리게 갱신) / 풍경(크기가 바뀔 때만 그림) / 앞(떨어지는 것들)
@@ -31,7 +31,7 @@ const Bg = (() => {
   const rnd = (a, b) => a + Math.random() * (b - a);
   const lcg = seed => { let s = seed >>> 0; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; };
   const D = 1;   // 배경은 흐려도 괜찮으니 해상도를 1배로 고정해 폰이 버겁지 않게 한다
-  let W = 0, H = 0, season = 'summer', parts = [], clouds = [], stars = [], gulls = [], raf = 0, lastP = 0, lastS = 0, hasBase = false;
+  let W = 0, H = 0, mist = null, season = 'summer', parts = [], clouds = [], stars = [], gulls = [], raf = 0, lastP = 0, lastS = 0, hasBase = false;
 
   // ----- 그리기 도우미 -----
   // 부드러운 1차원 노이즈: 산등성이와 언덕의 윤곽을 자연스럽게 만든다
@@ -272,11 +272,13 @@ const Bg = (() => {
       chimney = { x: cx + w * 0.3, y: cy - w * 0.88, w: w };
       for (let i = 0; i < 120; i++){ sg.fillStyle = 'rgba(255,255,255,' + (0.4 + r() * 0.5) + ')'; sg.beginPath(); sg.arc(r() * W, H * 0.9 + r() * H * 0.1, 0.6 + r() * 1.1, 0, 6.283); sg.fill(); }
     }
-    const vg = sg.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.85); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,10,0.38)');
+    const vg = sg.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.85); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,10,0.2)');
     sg.fillStyle = vg; sg.fillRect(0, 0, W, H);
     // 위쪽을 어둡게 눌러 제목과 버튼 글자가 잘 보이게 한다
-    const ov = sg.createLinearGradient(0, 0, 0, H * 0.62); ov.addColorStop(0, 'rgba(5,8,20,0.55)'); ov.addColorStop(1, 'rgba(5,8,20,0)');
+    const ov = sg.createLinearGradient(0, 0, 0, H * 0.62); ov.addColorStop(0, season === 'winter' ? 'rgba(5,8,20,0.3)' : 'rgba(5,10,28,0.2)'); ov.addColorStop(1, 'rgba(5,8,20,0)');
     sg.fillStyle = ov; sg.fillRect(0, 0, W, H);
+    // 사진처럼 아주 가는 알갱이(필름 노이즈)를 한 번만 얹는다
+    sg.save(); sg.globalAlpha = 0.16; sg.fillStyle = grainPattern(); sg.fillRect(0, 0, W, H); sg.restore();
   }
 
   // ----- 떨어지는 것들의 모양 -----
@@ -321,9 +323,31 @@ const Bg = (() => {
   }
 
   // ----- 움직이는 것들 -----
+  // 구름: 위는 햇빛을 받아 밝고 아래는 푸르스름하게 그늘지며, 바닥은 납작하게 퍼진다
   function cloudSprite(s, a, tint){
-    const c = document.createElement('canvas'); c.width = Math.ceil(s * 4.4); c.height = Math.ceil(s * 2.2);
-    cloud(c.getContext('2d'), c.width / 2, c.height / 2, s, a, tint); return c;
+    const w = Math.ceil(s * 4.4), h = Math.ceil(s * 2.2), cs = document.createElement('canvas'); cs.width = w; cs.height = h;
+    const c = cs.getContext('2d'), r = lcg(Math.round(s * 131 + a * 977)), n = 10 + Math.floor(r() * 4), warm = tint.charAt(0) === '2' && tint.indexOf('215') > -1;
+    const shade = warm ? '214,170,150' : '176,198,228', puffs = [];
+    for (let i = 0; i < n; i++){
+      const t = i / (n - 1), ph = Math.sin(t * Math.PI);
+      puffs.push({ x: w / 2 + (t - 0.5) * s * 2.7 + (r() - 0.5) * s * 0.3, y: h * 0.56 - ph * s * 0.3 + (r() - 0.5) * s * 0.14, r: s * (0.3 + 0.36 * ph + r() * 0.12) });
+    }
+    for (const p of puffs){ const g = c.createRadialGradient(p.x, p.y + p.r * 0.2, 0, p.x, p.y + p.r * 0.2, p.r * 1.08); g.addColorStop(0, 'rgba(' + shade + ',' + (a * 0.55) + ')'); g.addColorStop(1, 'rgba(' + shade + ',0)'); c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y + p.r * 0.2, p.r * 1.08, 0, 6.283); c.fill(); }
+    for (const p of puffs){ const g = c.createRadialGradient(p.x - p.r * 0.22, p.y - p.r * 0.3, 0, p.x, p.y, p.r); g.addColorStop(0, 'rgba(255,255,255,' + a + ')'); g.addColorStop(0.55, 'rgba(' + tint + ',' + (a * 0.8) + ')'); g.addColorStop(1, 'rgba(' + tint + ',0)'); c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, p.r, 0, 6.283); c.fill(); }
+    c.globalCompositeOperation = 'destination-out';
+    const fl = c.createLinearGradient(0, h * 0.58, 0, h * 0.72); fl.addColorStop(0, 'rgba(0,0,0,0)'); fl.addColorStop(1, 'rgba(0,0,0,0.9)'); c.fillStyle = fl; c.fillRect(0, h * 0.58, w, h * 0.42);
+    return cs;
+  }
+  function mistSprite(rgb, a){
+    const w = Math.ceil(Math.max(W, 360) * 1.3), h = 120, cs = document.createElement('canvas'); cs.width = w; cs.height = h;
+    const c = cs.getContext('2d');
+    for (let i = 0; i < 6; i++){ const x = w * (0.1 + i * 0.16), g = c.createRadialGradient(x, h / 2, 0, x, h / 2, w * 0.2); g.addColorStop(0, 'rgba(' + rgb + ',' + a + ')'); g.addColorStop(1, 'rgba(' + rgb + ',0)'); c.save(); c.translate(x, h / 2); c.scale(1, 0.22 + (i % 3) * 0.06); c.translate(-x, -h / 2 * 1); c.fillStyle = g; c.fillRect(x - w * 0.2, h / 2 - w * 0.2 * 5, w * 0.4, w * 0.4 * 5); c.restore(); }
+    return cs;
+  }
+  function grainPattern(){
+    const t = document.createElement('canvas'); t.width = t.height = 96; const c = t.getContext('2d'), d = c.createImageData(96, 96), r = lcg(7);
+    for (let i = 0; i < d.data.length; i += 4){ const v = r() < 0.5 ? 0 : 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 18 + r() * 30; }
+    c.putImageData(d, 0, 0); return sg.createPattern(t, 'repeat');
   }
   function make(){
     const n = Math.max(14, Math.min(34, Math.round(W * H / 42000)));
@@ -338,7 +362,8 @@ const Bg = (() => {
     }
     clouds = [];
     const tint = season === 'spring' ? '255,225,235' : season === 'autumn' ? '255,215,170' : '255,255,255';
-    if (season !== 'winter') for (let i = 0; i < 4; i++){ const s = Math.round(rnd(50, 110)); clouds.push({ x: rnd(0, W), y: rnd(H * 0.06, H * 0.34), s, v: rnd(4, 11), spr: cloudSprite(s, season === 'summer' ? 0.5 : 0.32, tint) }); }
+    if (season !== 'winter') for (let i = 0; i < 5; i++){ const s = Math.round(rnd(46, 100)); clouds.push({ x: rnd(0, W), y: rnd(H * 0.05, H * 0.36), s, v: rnd(3, 9), spr: cloudSprite(s, season === 'summer' ? 0.92 : season === 'spring' ? 0.75 : 0.62, tint) }); }
+    mist = season === 'summer' ? null : { spr: mistSprite(season === 'spring' ? '255,236,242' : season === 'autumn' ? '255,208,165' : '214,230,250', season === 'winter' ? 0.34 : 0.3), y: H * (season === 'spring' ? 0.7 : season === 'autumn' ? 0.74 : 0.79), v: season === 'winter' ? 5 : 8 };
     stars = [];
     for (let i = 0; i < 60; i++) stars.push({ x: rnd(0, W), y: rnd(0, H * 0.55), r: rnd(0.5, 1.4), ph: rnd(0, 6.28) });
     gulls = [];
@@ -349,16 +374,43 @@ const Bg = (() => {
   function buildSkyBase(){
     skyBase.width = W; skyBase.height = H; hasBase = true;
     const c = sb;
+    // 가늘게 퍼진 높은 구름과 햇살 줄기(해에서 퍼져 나가는 빛)
+    const rays = (sx, sy, a0, a1, cnt, col, alpha) => {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < cnt; k++){
+        const a = a0 + (a1 - a0) * (k + 0.5) / cnt + Math.sin(k * 12.9) * 0.03, wd = 0.035 + (k % 3) * 0.02, L = Math.max(W, H) * 1.3;
+        const g = c.createLinearGradient(sx, sy, sx + Math.cos(a) * L, sy + Math.sin(a) * L); g.addColorStop(0, 'rgba(' + col + ',' + alpha * (0.6 + (k % 4) * 0.15) + ')'); g.addColorStop(1, 'rgba(' + col + ',0)');
+        c.fillStyle = g; c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + Math.cos(a - wd) * L, sy + Math.sin(a - wd) * L); c.lineTo(sx + Math.cos(a + wd) * L, sy + Math.sin(a + wd) * L); c.closePath(); c.fill();
+      }
+      c.restore();
+    };
+    const sun = (sx, sy, rad, core, halo) => {
+      let g = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(260, W * 0.55)); g.addColorStop(0, 'rgba(' + halo + ',0.7)'); g.addColorStop(0.25, 'rgba(' + halo + ',0.25)'); g.addColorStop(1, 'rgba(' + halo + ',0)');
+      c.fillStyle = g; c.fillRect(0, 0, W, H);
+      g = c.createRadialGradient(sx, sy, 0, sx, sy, rad * 2.6); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(' + core + ',0.95)'); g.addColorStop(1, 'rgba(' + core + ',0)');
+      c.fillStyle = g; c.beginPath(); c.arc(sx, sy, rad * 2.6, 0, 6.283); c.fill();
+    };
+    if (season !== 'winter'){
+      for (let k = 0; k < 5; k++){
+        const cx = W * (0.15 + 0.2 * k) + Math.sin(k * 3.1) * 40, cy = H * (0.1 + 0.05 * ((k * 7) % 5)), g = c.createRadialGradient(cx, cy, 0, cx, cy, W * 0.32);
+        g.addColorStop(0, 'rgba(255,255,255,0.16)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        c.save(); c.translate(cx, cy); c.rotate(-0.12); c.scale(1, 0.07); c.translate(-cx, -cy); c.fillStyle = g; c.fillRect(cx - W * 0.32, cy - W * 0.32, W * 0.64, W * 0.64); c.restore();
+      }
+    }
     if (season === 'summer'){
       const sx = W * 0.8, sy = H * 0.18;
-      const gl = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(220, W * 0.4)); gl.addColorStop(0, 'rgba(255,236,160,0.6)'); gl.addColorStop(1, 'rgba(255,236,160,0)');
-      c.fillStyle = gl; c.fillRect(0, 0, W, H);
-      c.fillStyle = '#fff7cf'; c.beginPath(); c.arc(sx, sy, 34, 0, 6.283); c.fill();
+      sun(sx, sy, 24, '255,244,190', '255,238,170');
+      rays(sx, sy, 1.9, 2.9, 7, '255,240,190', 0.1);
+    } else if (season === 'spring'){
+      const sx = W * 0.2, sy = H * 0.17;
+      sun(sx, sy, 22, '255,238,200', '255,226,200');
+      rays(sx, sy, 0.2, 1.3, 6, '255,236,210', 0.09);
     } else if (season === 'autumn'){
       const sx = W * 0.68, sy = H * 0.66;
       const gl = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(260, W * 0.5)); gl.addColorStop(0, 'rgba(255,170,70,0.7)'); gl.addColorStop(1, 'rgba(255,170,70,0)');
       c.fillStyle = gl; c.fillRect(0, 0, W, H);
       c.fillStyle = 'rgba(255,214,140,0.9)'; c.beginPath(); c.arc(sx, sy, 40, 0, 6.283); c.fill();
+      rays(sx, sy, -2.3, -0.8, 8, '255,200,130', 0.12);
     } else if (season === 'winter'){
       const mx = W * 0.8, my = H * 0.16;
       const gl = c.createRadialGradient(mx, my, 0, mx, my, 130); gl.addColorStop(0, 'rgba(210,225,255,0.45)'); gl.addColorStop(1, 'rgba(210,225,255,0)');
@@ -387,6 +439,7 @@ const Bg = (() => {
   // 떨어지는 것은 한 번 그린 그림(스프라이트)을 위치만 바꿔 찍는다
   function drawParts(t){
     g.clearRect(0, 0, W, H);
+    if (mist){ const mw = mist.spr.width, off = ((t / 1000) * mist.v) % mw; g.drawImage(mist.spr, -off, mist.y - 60); g.drawImage(mist.spr, mw - off, mist.y - 60); }
     for (const p of parts){
       const x = p.x + Math.sin(t / 1300 + p.ph) * 20, flip = Math.cos(p.tum + t / 1000 * p.tv), fb = Math.min(3, Math.floor(Math.abs(flip) * 4));
       let spr, rot = p.rot;
