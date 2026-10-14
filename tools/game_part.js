@@ -597,7 +597,7 @@ if (typeof document !== 'undefined') (function(){
     const me = mpMe(); if (me) mp.go.add(me);
     mpEmit('ch', { v: 'go' }); mpEndUpdate(); mpTryNext();
   };
-  $('mpStop').onclick = () => { mpEmit('ch', { v: 'stop' }); setTimeout(() => mpTerminate('그만하기를 눌러서 방이 사라졌어요'), 150); };
+  $('mpStop').onclick = () => { mpEmit('ch', { v: 'stop' }); setTimeout(() => mpTerminate('그만하기를 눌러서 방이 사라졌어요'), 700); };
 
   function mpClose(){
     clearTimeout(mp.stT); clearTimeout(mp.endT);
@@ -613,33 +613,54 @@ if (typeof document !== 'undefined') (function(){
   }
   function mpLeaveSelf(){ mpClose(); exitMulti(); $('msg').textContent = '방에서 나갔어요'; }
 
-  async function mpConnect(code, band){
+  // 연결 방법: 1) 기기끼리 직접(WebRTC, 어느 브라우저에서나)  2) 안 되면 아티팩트의 room 기능
+  const NOROOM = 'noroom';
+  async function mpOpen(code, create){
+    let lastErr = null;
+    if (typeof DotsP2P !== 'undefined' && DotsP2P.supported()){
+      try { return await (create ? DotsP2P.host(code) : DotsP2P.join(code)); } catch (e) { lastErr = e; }
+      if (create && lastErr && lastErr.type === 'unavailable-id') throw lastErr;
+    }
     const room = await getRoom();
-    if (!room) return { err: '이 환경에서는 멀티플레이를 쓸 수 없어요. 공유된 아티팩트 링크에서 열어 주세요.' };
+    if (room){
+      try { return await room.join('mp-' + code); } catch (e) { lastErr = lastErr || e; }
+    }
+    throw lastErr || { type: 'unsupported' };
+  }
+  const mpErr = e => e && e.type === 'peer-unavailable' ? '방을 찾을 수 없어요. 방 코드를 다시 확인해 주세요.'
+    : e && e.type === 'unsupported' ? '이 브라우저에서는 멀티플레이를 쓸 수 없어요.'
+    : '연결하지 못했어요. 인터넷 연결을 확인하고 다시 해 보세요.';
+  async function mpConnect(code, band, create){
     let nr;
-    try { nr = await room.join('mp-' + code); } catch (e) { return { err: '방에 연결하지 못했어요. 잠시 뒤에 다시 해 보세요.' }; }
+    try { nr = await mpOpen(code, create); } catch (e) { return { err: mpErr(e), e }; }
     mp.prev = MODES.includes(MODE) || MODE === 'random' ? MODE : 'easy';
     mp.nr = nr; mp.on = true; mp.code = code; mp.band = band || 'easy'; mp.ser = 0; mp.seen = []; mp.go.clear();
     mp.unsubs.push(nr.on('mp', onMp, () => {}));
     mp.unsubs.push(nr.onPeers(mpPeersChanged, () => {}));
+    if (nr.onClose) mp.unsubs.push(nr.onClose(() => { if (!mp.on) return; if (MODE === 'multi') mpTerminate('방장이 나가서 방이 사라졌어요'); else mpClose(); }));
     return { nr };
   }
   const genCode = () => String(100000000 + Math.floor(Math.random() * 900000000));
   async function mpCreate(band){
     mpInfo('방을 만드는 중…');
-    const code = genCode(), r = await mpConnect(code, band);
+    let code, r;
+    for (let i = 0; i < 4; i++){
+      code = genCode(); r = await mpConnect(code, band, true);
+      if (!r.err || !(r.e && r.e.type === 'unavailable-id')) break;
+    }
     if (r.err){ mpInfo(r.err, true); return; }
     mpNew();
     closeModal($('mp')); mpInfo('');
-    $('msg').textContent = '방 코드 ' + code + ' · 친구에게 알려 주세요';
-    setTimeout(() => { if (MODE === 'multi') $('msg').textContent = '방 코드 ' + code + ' · 친구에게 알려 주세요'; }, 60);
+    const note = '방 코드 ' + code + ' · 친구에게 알려 주세요';
+    $('msg').textContent = note;
+    setTimeout(() => { if (MODE === 'multi' && !solved) $('msg').textContent = note; }, 60);
   }
   async function mpJoinRoom(code){
     mpInfo('방을 찾는 중…');
-    const r = await mpConnect(code, null);
+    const r = await mpConnect(code, null, false);
     if (r.err){ mpInfo(r.err, true); return; }
     const t0 = performance.now();
-    while (mp.on && mp.ser === 0 && performance.now() - t0 < 4500){
+    while (mp.on && mp.ser === 0 && performance.now() - t0 < 5000){
       mpEmit('hello');
       await new Promise(res => setTimeout(res, 700));
     }
@@ -657,7 +678,7 @@ if (typeof document !== 'undefined') (function(){
   $('goRandom').onclick = () => { closeModal($('modeSheet')); if (MODE === 'multi') mpClose(); MODE === 'random' ? 0 : switchLevel('random'); };
   $('goMulti').onclick = () => {
     closeModal($('modeSheet')); mpView('menu'); openModal($('mp'));
-    if (!(window.claude && window.claude.use)) mpInfo('이 파일에서는 멀티플레이를 쓸 수 없어요. 공유된 아티팩트 링크에서 열어 주세요.', true);
+    if (!(typeof DotsP2P !== 'undefined' && DotsP2P.supported()) && !(window.claude && window.claude.use)) mpInfo('이 브라우저에서는 멀티플레이를 쓸 수 없어요.', true);
   };
   $('closeModeSheet').onclick = () => closeModal($('modeSheet'));
   $('modeSheet').addEventListener('pointerdown', e => { if (e.target === $('modeSheet')) closeModal($('modeSheet')); });

@@ -51,6 +51,6 @@ function makeLevel(idx, mode){
 
 `;
 const top = fs.readFileSync(__dirname + '/shell_top.html', 'utf8');
-const out = top + runtimeHead + data + decode + fs.readFileSync(__dirname + '/bg.js', 'utf8') + fs.readFileSync(__dirname + '/music.js', 'utf8') + fs.readFileSync(__dirname + '/game_part.js', 'utf8') + fs.readFileSync(__dirname + '/shell_bottom.html', 'utf8');
+const out = top + runtimeHead + data + decode + fs.readFileSync(__dirname + '/bg.js', 'utf8') + fs.readFileSync(__dirname + '/music.js', 'utf8') + fs.readFileSync(__dirname + '/peerjs.min.js', 'utf8') + '\n' + fs.readFileSync(__dirname + '/p2p.js', 'utf8') + fs.readFileSync(__dirname + '/game_part.js', 'utf8') + fs.readFileSync(__dirname + '/shell_bottom.html', 'utf8');
 fs.writeFileSync(__dirname + '/../index.html', out);
 console.log('built, bytes', out.length);
