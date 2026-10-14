@@ -778,7 +778,7 @@ const Bg = (() => {
     const sun = (sx, sy, rad, core, halo) => {
       let g = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(260, W * 0.55)); g.addColorStop(0, 'rgba(' + halo + ',0.7)'); g.addColorStop(0.25, 'rgba(' + halo + ',0.25)'); g.addColorStop(1, 'rgba(' + halo + ',0)');
       c.fillStyle = g; c.fillRect(0, 0, W, H);
-      g = c.createRadialGradient(sx, sy, 0, sx, sy, rad * 2.6); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(' + core + ',0.95)'); g.addColorStop(1, 'rgba(' + core + ',0)');
+      g = c.createRadialGradient(sx, sy, 0, sx, sy, rad * 2.6); g.addColorStop(0, 'rgba(255,255,255,0.85)'); g.addColorStop(0.3, 'rgba(' + core + ',0.5)'); g.addColorStop(1, 'rgba(' + core + ',0)');
       c.fillStyle = g; c.beginPath(); c.arc(sx, sy, rad * 2.6, 0, 6.283); c.fill();
     };
     if (true){
@@ -896,7 +896,9 @@ const Bg = (() => {
       g.globalAlpha = 1;
     }
     if (season === 'summer'){
-      for (const s of glints){ g.fillStyle = 'rgba(255,248,210,' + (0.15 + 0.55 * Math.max(0, Math.sin(t / 500 + s.ph))) + ')'; g.fillRect(s.x, s.y, s.w, 1.4); }
+      const gl = sprite('glint', 32, c => { const gr = c.createRadialGradient(0, 0, 0, 0, 0, 16); gr.addColorStop(0, 'rgba(255,250,225,1)'); gr.addColorStop(0.4, 'rgba(255,244,200,0.45)'); gr.addColorStop(1, 'rgba(255,244,200,0)'); c.fillStyle = gr; c.beginPath(); c.arc(0, 0, 16, 0, 6.283); c.fill(); });
+      for (const s of glints){ const a = 0.55 * Math.max(0, Math.sin(t / 700 + s.ph)) * (nightF(t) < 0.5 ? 1 : 0.6); if (a < 0.04) continue; g.globalAlpha = a; g.drawImage(gl, s.x - s.w * 0.5, s.y - s.w * 0.22, s.w, s.w * 0.44); }
+      g.globalAlpha = 1;
       for (const b of gulls) gull(g, b.x, b.y, b.s, t);
     }
   }
