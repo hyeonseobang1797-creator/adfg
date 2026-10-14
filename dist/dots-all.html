@@ -143,10 +143,10 @@
   @keyframes blink{40%{opacity:1}}
 
   /* 부드러운 움직임 */
-  #settings:not([hidden]),#records:not([hidden]){animation:mIn .24s ease both}
-  #settings:not([hidden]) .panel,#records:not([hidden]) .panel{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
-  #settings.out,#records.out{animation:mOut .19s ease both}
-  #settings.out .panel,#records.out .panel{animation:boxOut .19s ease both}
+  #settings:not([hidden]),#records:not([hidden]),#modeSheet:not([hidden]),#mp:not([hidden]),#mpEnd:not([hidden]){animation:mIn .24s ease both}
+  #settings:not([hidden]) .panel,#records:not([hidden]) .panel,#modeSheet:not([hidden]) .panel,#mp:not([hidden]) .panel,#mpEnd:not([hidden]) .panel{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
+  #settings.out,#records.out,#modeSheet.out,#mp.out,#mpEnd.out{animation:mOut .19s ease both}
+  #settings.out .panel,#records.out .panel,#modeSheet.out .panel,#mp.out .panel,#mpEnd.out .panel{animation:boxOut .19s ease both}
   #sel:not([hidden]){animation:selIn .26s cubic-bezier(.2,.9,.3,1.1) both}
   #sel.out{animation:selOut .19s ease both}
   .stagein{animation:stageIn .38s cubic-bezier(.2,.9,.3,1.1) both}
@@ -168,6 +168,26 @@
   .reduce #playBtn,.reduce button.go{animation:none!important}
   .reduce #home .tube{stroke-dashoffset:0}
   .reduce #loadTxt .d{animation:none!important;opacity:1}
+
+  /* 모드 선택 · 멀티플레이 */
+  .cards{padding:2px 18px 18px;display:flex;flex-direction:column;gap:10px}
+  .card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:14px 16px;border-radius:16px;text-align:left;min-height:0;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));border-color:var(--edge2)}
+  .card b{font-size:17px;font-weight:800}.card span{font-size:12.5px;color:var(--ink2);font-weight:600}
+  .card.mpc b{color:#9fe3ff}.card.rdc b{color:#d2a8ff}
+  #mp .panel,#mpEnd .panel,#modeSheet .panel{width:min(100%,360px)}
+  #mp .body{padding:2px 18px 18px;display:flex;flex-direction:column;gap:10px}
+  .lab2{font-size:13px;color:var(--ink2);font-weight:700}
+  .dchips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .dchips button{padding:8px 2px;font-size:13.5px;font-weight:700;min-height:0;border-radius:12px;color:var(--ink2)}
+  .dchips button.on{color:#fff;border-color:var(--accent);background:linear-gradient(180deg,rgba(107,155,255,.35),rgba(107,155,255,.12));box-shadow:0 0 0 3px rgba(107,155,255,.2)}
+  .txin{height:46px;border-radius:14px;border:1px solid var(--edge2);background:rgba(255,255,255,.08);color:var(--ink);padding:0 14px;font:inherit;font-size:22px;font-weight:800;letter-spacing:.14em;text-align:center;-webkit-user-select:text;user-select:text;width:100%}
+  #mpInfo{min-height:18px;font-size:13px;font-weight:600;color:var(--ok);text-align:center}
+  #mpInfo.err{color:var(--danger)}
+  #mpEnd .panel{text-align:center;padding:22px 20px 20px;gap:12px}
+  #mpEnd h2{margin:0;font-size:28px;font-weight:900;background:linear-gradient(90deg,#6df0a8,#6b9bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #mpEndTxt{margin:0;color:var(--ink2);font-weight:600}
+  #mpWait{margin:0;min-height:18px;font-size:13px;color:var(--ok);font-weight:700}
+  #prev.leave{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -203,7 +223,7 @@
     <div class="ttl"><div id="lvl"><span class="lab" id="lvlLab">스테이지</span> <b id="lvlN">1</b> <span class="of" id="lvlOf">/ 480</span></div><div class="chip k0" id="diff" hidden></div></div>
     <button type="button" id="openSettings" class="icoBtn" aria-label="설정" title="설정"><svg viewBox="-12 -12 24 24" width="22" height="22" class="ic" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M-3.01 -7.09 L-2.25 -10.15 L2.25 -10.15 L3.01 -7.09 L4.63 -6.15 L7.67 -7.03 L9.92 -3.13 L7.64 -0.94 L7.64 0.94 L9.92 3.13 L7.67 7.03 L4.63 6.15 L3.01 7.09 L2.25 10.15 L-2.25 10.15 L-3.01 7.09 L-4.63 6.15 L-7.67 7.03 L-9.92 3.13 L-7.64 0.94 L-7.64 -0.94 L-9.92 -3.13 L-7.67 -7.03 L-4.63 -6.15 Z"/><circle r="3.3"/></svg></button>
   </header>
-  <div id="modes" role="group" aria-label="난이도"><i class="thumb"></i><button type="button" data-mode="easy">쉬움</button><button type="button" data-mode="normal">보통</button><button type="button" data-mode="hard">어려움</button><button type="button" data-mode="extreme">익스트림</button><button type="button" data-mode="random">랜덤</button></div>
+  <div id="modes" role="group" aria-label="난이도"><i class="thumb"></i><button type="button" data-mode="easy">쉬움</button><button type="button" data-mode="normal">보통</button><button type="button" data-mode="hard">어려움</button><button type="button" data-mode="extreme">익스트림</button><button type="button" data-mode="random">모드</button></div>
   <div class="stats">
     <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span id="flows">연결 0/0</span></div>
     <div class="meter"><i id="fillBar"></i></div>
@@ -218,7 +238,7 @@
   <div class="under" id="under">
     <div id="msg"></div>
     <nav class="dock" aria-label="조작">
-      <button type="button" class="dk" id="prev" aria-label="이전 스테이지"><svg class="ic" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg><span>이전</span></button>
+      <button type="button" class="dk" id="prev" aria-label="이전 스테이지"><svg class="ic" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg><span id="prevTxt">이전</span></button>
       <button type="button" class="dk" id="hint" aria-label="힌트"><svg class="ic" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/></svg><span id="hintTxt">힌트 2/2</span></button>
       <button type="button" class="dk" id="reset" aria-label="다시"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4.5h4.5"/></svg><span>다시</span></button>
       <button type="button" class="dk" id="pick" aria-label="스테이지 목록"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><span>목록</span></button>
@@ -231,6 +251,50 @@
   <div class="panel" role="dialog" aria-label="내 기록" style="width:min(100%,360px)">
     <div class="phead"><h2>랜덤 모드 기록</h2><button type="button" id="closeRec" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
     <div class="body" id="recBody" style="padding:2px 18px 18px;display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
+<div id="modeSheet" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="모드 선택">
+    <div class="phead"><h2>모드 선택</h2><button type="button" id="closeModeSheet" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="cards">
+      <button type="button" class="card rdc" id="goRandom"><b>랜덤 모드</b><span>중복 없는 무작위 판 · 시간과 최고 기록 도전</span></button>
+      <button type="button" class="card mpc" id="goMulti"><b>멀티플레이</b><span>방 코드로 함께 같은 판을 풀어요</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="mp" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="멀티플레이">
+    <div class="phead"><h2>멀티플레이</h2><button type="button" id="closeMp" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="body">
+      <div id="mpMenu" style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" class="card mpc" id="mpCreate"><b>방 만들기</b><span>난이도를 고르면 9자리 방 코드가 만들어져요</span></button>
+        <button type="button" class="card" id="mpJoin"><b>방 들어가기</b><span>친구에게 받은 방 코드를 입력해요</span></button>
+      </div>
+      <div id="mpCreateView" hidden style="display:flex;flex-direction:column;gap:10px">
+        <div class="lab2">난이도</div>
+        <div class="dchips" id="mpBands"><button type="button" data-band="easy" class="on">쉬움</button><button type="button" data-band="normal">보통</button><button type="button" data-band="hard">어려움</button><button type="button" data-band="extreme">익스트림</button></div>
+        <button type="button" class="primary" id="mpMake">방 만들기</button>
+        <button type="button" class="mpBack">뒤로</button>
+      </div>
+      <div id="mpJoinView" hidden style="display:flex;flex-direction:column;gap:10px">
+        <div class="lab2">방 코드 (9자리)</div>
+        <input id="mpCode" class="txin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="9" autocomplete="off" placeholder="000000000">
+        <button type="button" class="primary" id="mpEnter">입장</button>
+        <button type="button" class="mpBack">뒤로</button>
+      </div>
+      <div id="mpInfo" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<div id="mpEnd" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="성공" style="display:flex">
+    <h2>🎉 성공!</h2>
+    <p id="mpEndTxt"></p>
+    <div class="row"><button type="button" class="primary" id="mpGo">계속하기</button><button type="button" class="danger" id="mpStop">그만하기</button></div>
+    <p id="mpWait"></p>
   </div>
 </div>
 
@@ -941,10 +1005,12 @@ if (typeof document !== 'undefined') (function(){
   const MODES = ['easy', 'normal', 'hard', 'extreme'];
   const ALL_MODES = MODES.concat('random');
   const TIERNAME = { easy: '쉬움', normal: '보통', hard: '어려움', extreme: '익스트림' };
-  function renderModes(){ document.querySelectorAll('#modes button[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE)); $('modes').style.setProperty('--i', ALL_MODES.indexOf(MODE)); }
+  const inMore = () => MODE === 'random' || MODE === 'multi';
+  function renderModes(){ const k = inMore() ? 'random' : MODE; document.querySelectorAll('#modes button[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === k)); $('modes').style.setProperty('--i', ALL_MODES.indexOf(k)); }
   function switchLevel(m){
+    if (MODE === 'multi') mpClose();
     if (m === MODE) return;
-    if (MODE !== 'random') unlockedBy[MODE] = unlocked;
+    if (MODES.includes(MODE)) unlockedBy[MODE] = unlocked;
     MODE = m; rTierShown = null;
     try { localStorage.setItem('dotsMode', m); } catch (e) {}
     saveProgress();
@@ -990,19 +1056,20 @@ if (typeof document !== 'undefined') (function(){
     renderModes(); load(0);
     if (p.reshuffled) $('msg').textContent = '모든 판을 풀어서 다시 섞었어요';
   }
-  const hintKey = () => MODE === 'random' ? 'r' + rnd.id : levelIdx;
+  const hintKey = () => MODE === 'random' ? 'r' + rnd.id : MODE === 'multi' ? 'm' + mp.ser + ':' + rnd.id : levelIdx;
   const modalOpen = () => !$('settings').hidden || !$('sel').hidden || !$('records').hidden;
 
   function load(idx){
     { const cb = $('clearBanner'); clearTimeout(cb._t1); clearTimeout(cb._t2); cb.hidden = true; cb.classList.remove('out'); }
     let lv;
-    if (MODE === 'random'){
+    if (inMore()){
       levelIdx = rnd.idx; lv = makeLevel(rnd.idx, rnd.tier);
       if (rTierShown !== rnd.band){ rTierShown = rnd.band; Bg.set(SEASON[rnd.band]); Music.setMode(rnd.band); }
     } else {
       levelIdx = Math.max(0, Math.min(Math.min(idx, reach()), TOTAL - 1));
       lv = makeLevel(levelIdx);
     }
+    cv.dataset.puz = inMore() ? rnd.id : '';
     n = lv.n; pairs = lv.pairs; sol = lv.sol; kind = lv.kind;
     endOf = new Array(n * n).fill(-1);
     pairs.forEach((p, c) => { endOf[p[0]] = c; endOf[p[1]] = c; });
@@ -1047,7 +1114,7 @@ if (typeof document !== 'undefined') (function(){
       paths[c] = paths[c].slice(0, i + 1);
       active = c; moves++;
     }
-    draw(); updateUI();
+    draw(); updateUI(); if (mp.on) mpSt(true);
   }
 
   function stepTo(cell){
@@ -1088,14 +1155,14 @@ if (typeof document !== 'undefined') (function(){
       if (nh === head && q.length === before) break;
       head = nh;
     }
-    draw(); uiSoon();
+    draw(); uiSoon(); if (mp.on) mpSt();
   }
 
   function end(){
     if (active === -1) return;
     active = -1;
     checkWin();
-    draw(); updateUI();
+    draw(); updateUI(); if (mp.on) mpSt(true);
   }
 
   function checkWin(){
@@ -1103,6 +1170,10 @@ if (typeof document !== 'undefined') (function(){
     const filled = paths.reduce((s, p) => s + p.length, 0);
     if (filled !== n * n) { $('msg').textContent = '모든 칸을 채워야 해요!'; return; }
     solved = true; showClear(); fxConfetti(); Sfx.clear(); buzz([20, 50, 20, 50, 40]);
+    if (MODE === 'multi'){
+      tm.running = false; mpWon();
+      return;
+    }
     if (MODE === 'random'){
       tm.running = false;
       const t = Math.round(tm.acc), used = (hintUsed[hintKey()] || 0) > 0, prev = rs.best[rnd.band];
@@ -1142,21 +1213,23 @@ if (typeof document !== 'undefined') (function(){
   const setH = (id, v) => { const el = $(id); if (el.hidden !== v) el.hidden = v; };
   const setD = (id, v) => { const el = $(id); if (el.disabled !== v) el.disabled = v; };
   function updateUI(){
-    const R = MODE === 'random';
-    setT('lvlLab', R ? '랜덤' : '스테이지');
-    document.body.classList.toggle('rnd', !!R);
-    setT('lvlN', R ? TIERNAME[rnd.band] : levelIdx + 1);
-    setT('lvlOf', R ? '난이도 ' + rating() + ' · ' + n + '×' + n : '/ ' + TOTAL);
-    setH('diff', R || kind !== 2); setT('diff', KINDS[kind]);
+    const R = MODE === 'random', M = MODE === 'multi', RR = R || M;
+    setT('lvlLab', M ? '멀티' : R ? '랜덤' : '스테이지');
+    document.body.classList.toggle('rnd', RR);
+    setT('lvlN', RR ? TIERNAME[rnd.band] : levelIdx + 1);
+    setT('lvlOf', RR ? '난이도 ' + rating() + ' · ' + n + '×' + n : '/ ' + TOTAL);
+    setH('diff', RR || kind !== 2); setT('diff', KINDS[kind]);
     { const dc = $('diff'), cn = 'chip k' + kind; if (dc.className !== cn) dc.className = cn; }
     setT('hintTxt', '힌트 ' + hintsLeft() + '/' + maxHints(kind)); setD('hint', solved || hintsLeft() <= 0);
-    setD('prev', R || levelIdx === 0);
-    setD('pick', R);
+    setD('prev', R || (!M && levelIdx === 0));
+    setT('prevTxt', M ? '나가기' : '이전'); { const pb = $('prev'); if (pb.classList.contains('leave') !== M) pb.classList.toggle('leave', M); }
+    setD('pick', RR);
     setT('nextTxt', R ? '새 판' : cheat && !(solved || levelIdx < unlocked) ? '스킵' : '다음');
-    setD('next', R ? false : (!(solved || levelIdx < reach()) || levelIdx >= TOTAL - 1));
+    setD('next', M ? true : R ? false : (!(solved || levelIdx < reach()) || levelIdx >= TOTAL - 1));
     { const go = solved && (R || levelIdx < TOTAL - 1), nx = $('next'); if (nx.classList.contains('go') !== go) nx.classList.toggle('go', go); }
-    setH('rbar', !R);
+    setH('rbar', !RR);
     if (R){ const b = rs.best[rnd.band]; setT('rBest', b != null ? '최고 ' + fmtTime(b) : '최고 기록 없음'); }
+    if (M) setT('rBest', '방 ' + mp.code + ' · ' + Math.max(1, mpViewers().length) + '명');
     const done = paths.filter((_, c) => isComplete(c)).length;
     setT('flows', '연결 ' + done + '/' + pairs.length);
     const filled = paths.reduce((s, p) => s + p.length, 0), pct = Math.round(filled / (n * n) * 100);
@@ -1241,7 +1314,7 @@ if (typeof document !== 'undefined') (function(){
     if (t - lastT < ((active !== -1 || fxs.length) ? (slowDraw ? 33 : 16) : 66)) return;
     const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
     if (!n) return;
-    if (MODE === 'random'){
+    if (inMore()){
       const now = performance.now();
       if (tm.running){ if (!document.hidden && !modalOpen()) tm.acc += Math.min(now - tm.last, 200); tm.last = now; }
       const txt = fmtTime(tm.acc); if ($('rTime').textContent !== txt) $('rTime').textContent = txt;
@@ -1362,11 +1435,11 @@ if (typeof document !== 'undefined') (function(){
     const on = new Set(line);
     paths.forEach((p, k) => { if (k !== c){ const j = p.findIndex(x => on.has(x)); if (j !== -1) paths[k] = p.slice(0, j); } });
     moves++; fxRing(sol[c][0], COLORS[c % COLORS.length], true); fxRing(sol[c][sol[c].length - 1], COLORS[c % COLORS.length], true); Sfx.hint(); buzz(10);
-    checkWin(); draw(); updateUI();
+    checkWin(); draw(); updateUI(); if (mp.on) mpSt(true);
     if (!solved) $('msg').textContent = fixed ? '잘못 그은 선을 고쳤어요' : '선 하나를 이어 줬어요';
   };
-  $('reset').onclick = () => load(levelIdx);
-  $('prev').onclick = () => load(levelIdx - 1);
+  $('reset').onclick = () => { if (MODE === 'multi'){ if (solved) return; paths = pairs.map(() => []); active = -1; draw(); updateUI(); mpSt(true); return; } load(levelIdx); };
+  $('prev').onclick = () => { if (MODE === 'multi'){ mpLeaveSelf(); return; } load(levelIdx - 1); };
   $('next').onclick = () => { if (MODE === 'random'){ nextRandom(); return; } if (solved || levelIdx < reach()) load(levelIdx + 1); };
   function buildSelect(){
     $('selProg').textContent = Math.min(TOTAL, unlocked + 1) + ' / ' + TOTAL + ' 해금';
@@ -1384,7 +1457,7 @@ if (typeof document !== 'undefined') (function(){
   $('closeSel').onclick = closeList;
   document.addEventListener('pointerdown', e => { if (!$('sel').hidden && !e.target.closest('#sel') && !e.target.closest('#pick')) closeList(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeList(); });
-  $('pick').onclick = () => { if (MODE === 'random') return; const s = $('sel'); if (!s.hidden && !s.classList.contains('out')){ closeModal(s); return; } buildSelect(); openModal(s); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); };
+  $('pick').onclick = () => { if (inMore()) return; const s = $('sel'); if (!s.hidden && !s.classList.contains('out')){ closeModal(s); return; } buildSelect(); openModal(s); const c = $('grid').children[levelIdx]; if (c) c.scrollIntoView({block:'center'}); };
   document.addEventListener('pointerdown', e => {
     const b = e.target.closest && e.target.closest('button');
     if (!b || b.disabled) return;
@@ -1394,6 +1467,206 @@ if (typeof document !== 'undefined') (function(){
     sp.className = 'rip'; sp.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - r.left - d / 2) + 'px;top:' + (e.clientY - r.top - d / 2) + 'px';
     b.appendChild(sp); setTimeout(() => sp.remove(), 520);
   });
+
+  // ---------------- 멀티플레이: 같은 방(9자리 코드) 사람들이 한 판을 함께 푼다 ----------------
+  // 연결은 아티팩트의 room 기능으로 한다. 이 기능이 없는 곳(내려받은 파일 등)에서는 멀티플레이를 쓸 수 없다.
+  const mp = { on: false, nr: null, code: '', band: 'easy', ser: 0, seen: [], go: new Set(), unsubs: [], prev: 'easy', myPeer: null, lastSt: 0, stT: 0, endT: 0 };
+  const mpViewers = () => mp.nr ? mp.nr.peers().filter(p => p.kind === 'viewer') : [];
+  const mpMe = () => { const p = mpViewers().find(p => p.isMe && p.sameTab); return p ? p.peer : mp.myPeer; };
+  // 방장: 이미 판을 받은(presence r=1) 사람 가운데 peer 이름이 가장 앞인 사람. 방장이 나가면 다음 사람이 이어받는다
+  const mpHost = () => { if (mp.ser === 0) return false; const me = mpMe(); const v = mpViewers().filter(p => p.peer === me || (p.presence && p.presence.r === 1)).map(p => p.peer).sort(); return !!me && v[0] === me; };
+  const mpEmit = (t, extra) => { if (!mp.nr) return; try { mp.nr.emit('mp', Object.assign({ t, ser: mp.ser }, extra)).catch(() => {}); } catch (e) {} };
+  const encPaths = () => paths.map(p => p.join('.'));
+  function decPaths(a){
+    if (!Array.isArray(a) || a.length !== pairs.length) return null;
+    const used = new Set(), out = [];
+    for (let c = 0; c < a.length; c++){
+      const s = a[c]; let p = [];
+      if (typeof s === 'string' && s && s.length <= 700) p = s.split('.').map(Number);
+      const ok = p.every((x, i) => Number.isInteger(x) && x >= 0 && x < n * n && (i === 0 || neighbors(p[i - 1], n).includes(x)));
+      if (!ok || (p.length && endOf[p[0]] !== c)) p = [];
+      const q = [];
+      for (const x of p){ if (used.has(x) || (endOf[x] !== -1 && endOf[x] !== c)) break; used.add(x); q.push(x); }
+      out.push(q);
+    }
+    return out;
+  }
+  function adoptPaths(a){
+    if (active !== -1 || solved) return;
+    const d = decPaths(a); if (!d) return;
+    paths = d; draw(); updateUI(); checkWin();
+  }
+  function mpSt(force){
+    if (!mp.on) return;
+    clearTimeout(mp.stT);
+    const wait = force ? 0 : Math.max(0, 90 - (performance.now() - mp.lastSt));
+    mp.stT = setTimeout(() => { mp.lastSt = performance.now(); mpEmit('st', { p: encPaths() }); }, wait);
+  }
+  function mpInfo(msg, err){ const el = $('mpInfo'); el.textContent = msg || ''; el.classList.toggle('err', !!err); }
+  async function getRoom(){ try { if (!(window.claude && window.claude.use)) return null; return await window.claude.use('room'); } catch (e) { return null; } }
+
+  function applyPuz(d){
+    mp.ser = d.ser; mp.band = d.band;
+    if (!mp.seen.includes(d.id)) mp.seen.push(d.id);
+    mp.go.clear(); clearTimeout(mp.endT);
+    closeModal($('mpEnd'));
+    rnd = { id: d.id, band: d.band, tier: RTIERS[Math.floor(d.id / TOTAL)], idx: d.id % TOTAL };
+    MODE = 'multi';
+    renderModes(); load(0);
+    tm.running = true; tm.last = performance.now();
+    if (mp.nr) mp.nr.presence({ r: 1 }).catch(() => {});
+    updateUI();
+  }
+  function pickMp(){
+    const total = RTIERS.length * TOTAL, seen = new Set(mp.seen);
+    const inBand = ex => { const a = []; for (let id = 0; id < total; id++) if (!RSKIP.has(id) && bandOf(RRATE[id]) === mp.band && !(ex && seen.has(id))) a.push(id); return a; };
+    let pool = inBand(true);
+    if (!pool.length){ mp.seen = []; pool = inBand(false); }
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  function mpNew(){
+    const id = pickMp(), ser = mp.ser + 1;
+    applyPuz({ ser, id, band: mp.band });
+    mpEmit('puz', { id, band: mp.band });
+  }
+  function mpSendPuz(){ if (mp.ser > 0) mpEmit('puz', { id: rnd.id, band: mp.band, p: encPaths() }); }
+
+  function onMp(m){
+    const d = m.data;
+    if (!mp.on || !d || typeof d !== 'object') return;
+    if (m.sameTab){ mp.myPeer = m.peer; if (d.t !== 'ch') return; }
+    switch (d.t){
+      case 'hello': if (mp.ser > 0) mpSendPuz(); break;
+      case 'puz': {
+        const id = d.id, total = RTIERS.length * TOTAL;
+        if (!Number.isInteger(d.ser) || !Number.isInteger(id) || id < 0 || id >= total || RSKIP.has(id) || !TIERNAME[d.band]) return;
+        if (d.ser < mp.ser) return;
+        if (d.ser > mp.ser){ applyPuz(d); if (d.p) adoptPaths(d.p); }
+        else if (d.id !== rnd.id && d.ser === mp.ser && m.peer < (mpMe() || '~')) applyPuz(d);   // 동시에 새 판을 골랐으면 peer가 앞선 쪽을 따른다
+        else if (d.p && !solved) adoptPaths(d.p);
+        break;
+      }
+      case 'st': if (d.ser === mp.ser && !solved) adoptPaths(d.p); break;
+      case 'ch':
+        if (d.ser !== mp.ser) return;
+        if (d.v === 'stop') mpTerminate('상대가 그만하기를 눌러서 방이 사라졌어요');
+        else if (d.v === 'go'){ mp.go.add(m.peer); mpEndUpdate(); mpTryNext(); }
+        break;
+    }
+  }
+  function mpPeersChanged(ch){
+    if (!mp.on) return;
+    if (ch.joined.some(p => !p.isMe) && mp.ser > 0) mpSendPuz();
+    if (MODE === 'multi'){
+      updateUI(); mpEndUpdate(); mpTryNext();
+      if (ch.left.some(p => !p.isMe)) $('msg').textContent = '상대가 방을 나갔어요';
+    }
+  }
+  function mpWon(){
+    const t = Math.round(tm.acc);
+    $('msg').textContent = '성공! ' + fmtTime(t);
+    $('cbStage').textContent = '멀티 · ' + TIERNAME[rnd.band] + ' · ' + fmtTime(t);
+    mp.go.clear();
+    const ser = mp.ser;
+    clearTimeout(mp.endT);
+    mp.endT = setTimeout(() => {
+      if (!solved || MODE !== 'multi' || mp.ser !== ser) return;
+      $('mpEndTxt').textContent = TIERNAME[rnd.band] + ' · 난이도 ' + rating() + ' · ' + fmtTime(t);
+      $('mpGo').disabled = false; $('mpGo').textContent = '계속하기'; $('mpWait').textContent = '';
+      openModal($('mpEnd'));
+    }, reduceFx ? 300 : 1100);
+    updateUI();
+  }
+  function mpEndUpdate(){
+    if ($('mpEnd').hidden) return;
+    const me = mpMe();
+    if (me && mp.go.has(me)){ $('mpGo').disabled = true; $('mpGo').textContent = '기다리는 중…'; $('mpWait').textContent = '모두 계속하기를 누르면 다음 판이 시작돼요 (' + [...mp.go].filter(x => mpViewers().some(p => p.peer === x)).length + '/' + mpViewers().length + ')'; }
+  }
+  function mpTryNext(){
+    if (!solved || MODE !== 'multi' || $('mpEnd').hidden) return;
+    const v = mpViewers();
+    if (v.length && v.every(p => mp.go.has(p.peer)) && mpHost()) mpNew();
+  }
+  $('mpGo').onclick = () => {
+    const me = mpMe(); if (me) mp.go.add(me);
+    mpEmit('ch', { v: 'go' }); mpEndUpdate(); mpTryNext();
+  };
+  $('mpStop').onclick = () => { mpEmit('ch', { v: 'stop' }); setTimeout(() => mpTerminate('그만하기를 눌러서 방이 사라졌어요'), 150); };
+
+  function mpClose(){
+    clearTimeout(mp.stT); clearTimeout(mp.endT);
+    mp.unsubs.forEach(f => { try { f(); } catch (e) {} }); mp.unsubs = [];
+    const nr = mp.nr; mp.nr = null; mp.on = false; mp.ser = 0; mp.seen = []; mp.go.clear(); mp.myPeer = null;
+    if (nr) try { nr.leave().catch(() => {}); } catch (e) {}
+    closeModal($('mpEnd'));
+  }
+  function exitMulti(){ const to = mp.prev || 'easy'; MODE = '__'; switchLevel(to); }
+  function mpTerminate(msg){
+    if (MODE !== 'multi'){ mpClose(); return; }
+    mpClose(); exitMulti(); $('msg').textContent = msg;
+  }
+  function mpLeaveSelf(){ mpClose(); exitMulti(); $('msg').textContent = '방에서 나갔어요'; }
+
+  async function mpConnect(code, band){
+    const room = await getRoom();
+    if (!room) return { err: '이 환경에서는 멀티플레이를 쓸 수 없어요. 공유된 아티팩트 링크에서 열어 주세요.' };
+    let nr;
+    try { nr = await room.join('mp-' + code); } catch (e) { return { err: '방에 연결하지 못했어요. 잠시 뒤에 다시 해 보세요.' }; }
+    mp.prev = MODES.includes(MODE) || MODE === 'random' ? MODE : 'easy';
+    mp.nr = nr; mp.on = true; mp.code = code; mp.band = band || 'easy'; mp.ser = 0; mp.seen = []; mp.go.clear();
+    mp.unsubs.push(nr.on('mp', onMp, () => {}));
+    mp.unsubs.push(nr.onPeers(mpPeersChanged, () => {}));
+    return { nr };
+  }
+  const genCode = () => String(100000000 + Math.floor(Math.random() * 900000000));
+  async function mpCreate(band){
+    mpInfo('방을 만드는 중…');
+    const code = genCode(), r = await mpConnect(code, band);
+    if (r.err){ mpInfo(r.err, true); return; }
+    mpNew();
+    closeModal($('mp')); mpInfo('');
+    $('msg').textContent = '방 코드 ' + code + ' · 친구에게 알려 주세요';
+    setTimeout(() => { if (MODE === 'multi') $('msg').textContent = '방 코드 ' + code + ' · 친구에게 알려 주세요'; }, 60);
+  }
+  async function mpJoinRoom(code){
+    mpInfo('방을 찾는 중…');
+    const r = await mpConnect(code, null);
+    if (r.err){ mpInfo(r.err, true); return; }
+    const t0 = performance.now();
+    while (mp.on && mp.ser === 0 && performance.now() - t0 < 4500){
+      mpEmit('hello');
+      await new Promise(res => setTimeout(res, 700));
+    }
+    if (!mp.on) return;
+    if (mp.ser === 0){ mpClose(); mpInfo('방을 찾을 수 없어요. 방 코드를 다시 확인해 주세요.', true); return; }
+    if (mpViewers().length > 4){ mpClose(); exitMulti(); mpInfo('방이 가득 찼어요 (최대 4명)', true); openModal($('mp')); return; }
+    closeModal($('mp')); mpInfo('');
+    $('msg').textContent = '방에 들어왔어요 · 함께 선을 이어 보세요';
+  }
+  // 로비 화면
+  function mpView(v){
+    $('mpMenu').hidden = v !== 'menu'; $('mpCreateView').hidden = v !== 'create'; $('mpJoinView').hidden = v !== 'join'; mpInfo('');
+  }
+  let mpBand = 'easy';
+  $('goRandom').onclick = () => { closeModal($('modeSheet')); if (MODE === 'multi') mpClose(); MODE === 'random' ? 0 : switchLevel('random'); };
+  $('goMulti').onclick = () => {
+    closeModal($('modeSheet')); mpView('menu'); openModal($('mp'));
+    if (!(window.claude && window.claude.use)) mpInfo('이 파일에서는 멀티플레이를 쓸 수 없어요. 공유된 아티팩트 링크에서 열어 주세요.', true);
+  };
+  $('closeModeSheet').onclick = () => closeModal($('modeSheet'));
+  $('modeSheet').addEventListener('pointerdown', e => { if (e.target === $('modeSheet')) closeModal($('modeSheet')); });
+  $('closeMp').onclick = () => closeModal($('mp'));
+  $('mp').addEventListener('pointerdown', e => { if (e.target === $('mp')) closeModal($('mp')); });
+  $('mpCreate').onclick = () => mpView('create');
+  $('mpJoin').onclick = () => { mpView('join'); setTimeout(() => $('mpCode').focus(), 50); };
+  document.querySelectorAll('.mpBack').forEach(b => { b.onclick = () => mpView('menu'); });
+  $('mpBands').querySelectorAll('button').forEach(b => { b.onclick = () => { mpBand = b.dataset.band; $('mpBands').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }; });
+  $('mpMake').onclick = () => mpCreate(mpBand);
+  $('mpCode').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 9); });
+  $('mpCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('mpEnter').click(); e.stopPropagation(); });
+  $('mpEnter').onclick = () => { const c = $('mpCode').value; if (!/^\d{9}$/.test(c)){ mpInfo('방 코드는 숫자 9자리예요', true); return; } mpJoinRoom(c); };
+  $('recBtn').addEventListener('click', e => { if (MODE === 'multi' && navigator.clipboard){ navigator.clipboard.writeText(mp.code).then(() => { $('msg').textContent = '방 코드를 복사했어요'; }).catch(() => {}); } });
+
   // ---------------- 저장: 이 기기의 브라우저에 자동으로 ----------------
   const SAVE_KEY = 'dotsProgress';
   function loadSave(){
@@ -1412,7 +1685,7 @@ if (typeof document !== 'undefined') (function(){
     for (const k in hintUsed) delete hintUsed[k];
     rs.seen = []; rs.best = {}; rs.played = 0; rs.solved = {}; saveRandom();
     buildSelect();
-    if (MODE === 'random'){ rTierShown = null; nextRandom(); } else load(0);
+    if (MODE === 'random'){ rTierShown = null; nextRandom(); } else if (MODE !== 'multi') load(0);
     $('msg').textContent = '처음부터 다시 시작해요';
   }
   function initSettings(){
@@ -1427,6 +1700,7 @@ if (typeof document !== 'undefined') (function(){
     };
     $('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('codeBtn').click(); e.stopPropagation(); });
     $('recBtn').onclick = () => {
+      if (MODE === 'multi') return;
       const rows = ['easy', 'normal', 'hard', 'extreme'].map(k => '<div class="srow"><div class="l">' + TIERNAME[k] + '</div><div style="text-align:right;font-variant-numeric:tabular-nums">' + (rs.best[k] != null ? fmtTime(rs.best[k]) : '-') + '<div style="font-size:11px;color:var(--muted);font-weight:600">' + (rs.solved[k] || 0) + '판 클리어</div></div></div>').join('');
       $('recBody').innerHTML = rows + '<p class="hint" style="margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center">힌트를 쓰지 않은 클리어만 기록돼요</p>';
       openModal($('records'));
@@ -1441,7 +1715,7 @@ if (typeof document !== 'undefined') (function(){
     $('yes').onclick = () => { resetAll(); close(); };
   }
 
-  document.querySelectorAll('#modes button[data-mode]').forEach(b => { b.onclick = () => switchLevel(b.dataset.mode); });
+  document.querySelectorAll('#modes button[data-mode]').forEach(b => { b.onclick = () => { if (b.dataset.mode === 'random') openModal($('modeSheet')); else switchLevel(b.dataset.mode); }; });
   applyMotion(reduceFx);
   loadSave(); loadRandom();
   if (MODE === 'random'){
@@ -1454,7 +1728,7 @@ if (typeof document !== 'undefined') (function(){
   initSettings();
   fit();
   new MutationObserver(() => { if ($('msg').textContent) kick($('msg'), 'msgpop'); }).observe($('msg'), { childList: true, characterData: true, subtree: true });
-  $('homeBtn').onclick = () => { if (cheat){ cheat = false; $('codeMsg').textContent = ''; load(Math.min(levelIdx, unlocked)); buildSelect(); } document.body.classList.remove('in-game'); $('home').hidden = false; starting = false; };
+  $('homeBtn').onclick = () => { if (MODE === 'multi'){ mpClose(); exitMulti(); } if (cheat){ cheat = false; $('codeMsg').textContent = ''; load(Math.min(levelIdx, unlocked)); buildSelect(); } document.body.classList.remove('in-game'); $('home').hidden = false; starting = false; };
   // PLAY: 0.7초 동안 까맣게 → "로딩중..." 1.6초 → 0.7초 동안 게임 화면이 서서히 나타난다 (모두 3초)
   let starting = false;
   $('playBtn').onclick = () => {

@@ -143,10 +143,10 @@
   @keyframes blink{40%{opacity:1}}
 
   /* 부드러운 움직임 */
-  #settings:not([hidden]),#records:not([hidden]){animation:mIn .24s ease both}
-  #settings:not([hidden]) .panel,#records:not([hidden]) .panel{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
-  #settings.out,#records.out{animation:mOut .19s ease both}
-  #settings.out .panel,#records.out .panel{animation:boxOut .19s ease both}
+  #settings:not([hidden]),#records:not([hidden]),#modeSheet:not([hidden]),#mp:not([hidden]),#mpEnd:not([hidden]){animation:mIn .24s ease both}
+  #settings:not([hidden]) .panel,#records:not([hidden]) .panel,#modeSheet:not([hidden]) .panel,#mp:not([hidden]) .panel,#mpEnd:not([hidden]) .panel{animation:boxIn .3s cubic-bezier(.2,.9,.3,1.15) both}
+  #settings.out,#records.out,#modeSheet.out,#mp.out,#mpEnd.out{animation:mOut .19s ease both}
+  #settings.out .panel,#records.out .panel,#modeSheet.out .panel,#mp.out .panel,#mpEnd.out .panel{animation:boxOut .19s ease both}
   #sel:not([hidden]){animation:selIn .26s cubic-bezier(.2,.9,.3,1.1) both}
   #sel.out{animation:selOut .19s ease both}
   .stagein{animation:stageIn .38s cubic-bezier(.2,.9,.3,1.1) both}
@@ -168,6 +168,26 @@
   .reduce #playBtn,.reduce button.go{animation:none!important}
   .reduce #home .tube{stroke-dashoffset:0}
   .reduce #loadTxt .d{animation:none!important;opacity:1}
+
+  /* 모드 선택 · 멀티플레이 */
+  .cards{padding:2px 18px 18px;display:flex;flex-direction:column;gap:10px}
+  .card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:14px 16px;border-radius:16px;text-align:left;min-height:0;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));border-color:var(--edge2)}
+  .card b{font-size:17px;font-weight:800}.card span{font-size:12.5px;color:var(--ink2);font-weight:600}
+  .card.mpc b{color:#9fe3ff}.card.rdc b{color:#d2a8ff}
+  #mp .panel,#mpEnd .panel,#modeSheet .panel{width:min(100%,360px)}
+  #mp .body{padding:2px 18px 18px;display:flex;flex-direction:column;gap:10px}
+  .lab2{font-size:13px;color:var(--ink2);font-weight:700}
+  .dchips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .dchips button{padding:8px 2px;font-size:13.5px;font-weight:700;min-height:0;border-radius:12px;color:var(--ink2)}
+  .dchips button.on{color:#fff;border-color:var(--accent);background:linear-gradient(180deg,rgba(107,155,255,.35),rgba(107,155,255,.12));box-shadow:0 0 0 3px rgba(107,155,255,.2)}
+  .txin{height:46px;border-radius:14px;border:1px solid var(--edge2);background:rgba(255,255,255,.08);color:var(--ink);padding:0 14px;font:inherit;font-size:22px;font-weight:800;letter-spacing:.14em;text-align:center;-webkit-user-select:text;user-select:text;width:100%}
+  #mpInfo{min-height:18px;font-size:13px;font-weight:600;color:var(--ok);text-align:center}
+  #mpInfo.err{color:var(--danger)}
+  #mpEnd .panel{text-align:center;padding:22px 20px 20px;gap:12px}
+  #mpEnd h2{margin:0;font-size:28px;font-weight:900;background:linear-gradient(90deg,#6df0a8,#6b9bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #mpEndTxt{margin:0;color:var(--ink2);font-weight:600}
+  #mpWait{margin:0;min-height:18px;font-size:13px;color:var(--ok);font-weight:700}
+  #prev.leave{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -203,7 +223,7 @@
     <div class="ttl"><div id="lvl"><span class="lab" id="lvlLab">스테이지</span> <b id="lvlN">1</b> <span class="of" id="lvlOf">/ 480</span></div><div class="chip k0" id="diff" hidden></div></div>
     <button type="button" id="openSettings" class="icoBtn" aria-label="설정" title="설정"><svg viewBox="-12 -12 24 24" width="22" height="22" class="ic" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M-3.01 -7.09 L-2.25 -10.15 L2.25 -10.15 L3.01 -7.09 L4.63 -6.15 L7.67 -7.03 L9.92 -3.13 L7.64 -0.94 L7.64 0.94 L9.92 3.13 L7.67 7.03 L4.63 6.15 L3.01 7.09 L2.25 10.15 L-2.25 10.15 L-3.01 7.09 L-4.63 6.15 L-7.67 7.03 L-9.92 3.13 L-7.64 0.94 L-7.64 -0.94 L-9.92 -3.13 L-7.67 -7.03 L-4.63 -6.15 Z"/><circle r="3.3"/></svg></button>
   </header>
-  <div id="modes" role="group" aria-label="난이도"><i class="thumb"></i><button type="button" data-mode="easy">쉬움</button><button type="button" data-mode="normal">보통</button><button type="button" data-mode="hard">어려움</button><button type="button" data-mode="extreme">익스트림</button><button type="button" data-mode="random">랜덤</button></div>
+  <div id="modes" role="group" aria-label="난이도"><i class="thumb"></i><button type="button" data-mode="easy">쉬움</button><button type="button" data-mode="normal">보통</button><button type="button" data-mode="hard">어려움</button><button type="button" data-mode="extreme">익스트림</button><button type="button" data-mode="random">모드</button></div>
   <div class="stats">
     <div class="chip"><svg class="ic" viewBox="0 0 24 24" width="15" height="15"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span id="flows">연결 0/0</span></div>
     <div class="meter"><i id="fillBar"></i></div>
@@ -218,7 +238,7 @@
   <div class="under" id="under">
     <div id="msg"></div>
     <nav class="dock" aria-label="조작">
-      <button type="button" class="dk" id="prev" aria-label="이전 스테이지"><svg class="ic" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg><span>이전</span></button>
+      <button type="button" class="dk" id="prev" aria-label="이전 스테이지"><svg class="ic" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg><span id="prevTxt">이전</span></button>
       <button type="button" class="dk" id="hint" aria-label="힌트"><svg class="ic" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/></svg><span id="hintTxt">힌트 2/2</span></button>
       <button type="button" class="dk" id="reset" aria-label="다시"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4.5h4.5"/></svg><span>다시</span></button>
       <button type="button" class="dk" id="pick" aria-label="스테이지 목록"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><span>목록</span></button>
@@ -231,6 +251,50 @@
   <div class="panel" role="dialog" aria-label="내 기록" style="width:min(100%,360px)">
     <div class="phead"><h2>랜덤 모드 기록</h2><button type="button" id="closeRec" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
     <div class="body" id="recBody" style="padding:2px 18px 18px;display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
+<div id="modeSheet" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="모드 선택">
+    <div class="phead"><h2>모드 선택</h2><button type="button" id="closeModeSheet" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="cards">
+      <button type="button" class="card rdc" id="goRandom"><b>랜덤 모드</b><span>중복 없는 무작위 판 · 시간과 최고 기록 도전</span></button>
+      <button type="button" class="card mpc" id="goMulti"><b>멀티플레이</b><span>방 코드로 함께 같은 판을 풀어요</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="mp" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="멀티플레이">
+    <div class="phead"><h2>멀티플레이</h2><button type="button" id="closeMp" class="xBtn" aria-label="닫기"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div class="body">
+      <div id="mpMenu" style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" class="card mpc" id="mpCreate"><b>방 만들기</b><span>난이도를 고르면 9자리 방 코드가 만들어져요</span></button>
+        <button type="button" class="card" id="mpJoin"><b>방 들어가기</b><span>친구에게 받은 방 코드를 입력해요</span></button>
+      </div>
+      <div id="mpCreateView" hidden style="display:flex;flex-direction:column;gap:10px">
+        <div class="lab2">난이도</div>
+        <div class="dchips" id="mpBands"><button type="button" data-band="easy" class="on">쉬움</button><button type="button" data-band="normal">보통</button><button type="button" data-band="hard">어려움</button><button type="button" data-band="extreme">익스트림</button></div>
+        <button type="button" class="primary" id="mpMake">방 만들기</button>
+        <button type="button" class="mpBack">뒤로</button>
+      </div>
+      <div id="mpJoinView" hidden style="display:flex;flex-direction:column;gap:10px">
+        <div class="lab2">방 코드 (9자리)</div>
+        <input id="mpCode" class="txin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="9" autocomplete="off" placeholder="000000000">
+        <button type="button" class="primary" id="mpEnter">입장</button>
+        <button type="button" class="mpBack">뒤로</button>
+      </div>
+      <div id="mpInfo" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<div id="mpEnd" class="scrim" hidden>
+  <div class="panel" role="dialog" aria-label="성공" style="display:flex">
+    <h2>🎉 성공!</h2>
+    <p id="mpEndTxt"></p>
+    <div class="row"><button type="button" class="primary" id="mpGo">계속하기</button><button type="button" class="danger" id="mpStop">그만하기</button></div>
+    <p id="mpWait"></p>
   </div>
 </div>
 
