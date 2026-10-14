@@ -522,6 +522,11 @@ if (typeof document !== 'undefined') (function(){
     paths[c] = p;
     const on = new Set(p);
     paths.forEach((q, k) => { if (k !== c && k !== active){ const j = q.findIndex(x => on.has(x)); if (j !== -1) paths[k] = q.slice(0, j); } });
+    if (p.length){
+      const col = COLORS[c % COLORS.length], head = p[p.length - 1];
+      fxRing(head, col);
+      if (p.length > 1 && endOf[head] === c){ pairs[c].forEach(i => fxBurst(i, col, 12)); Sfx.connect(); }
+    }
     draw(); updateUI(); if (active === -1) checkWin();
   }
   function mpLine(c, force){
@@ -595,10 +600,10 @@ if (typeof document !== 'undefined') (function(){
   }
   function mpPeersChanged(ch){
     if (!mp.on) return;
-    if (ch.joined.some(p => !p.isMe) && mp.ser > 0) mpSendPuz();
+    if (ch.joined.some(p => !p.isMe) && mp.ser > 0){ mpSendPuz(); Sfx.hint(); buzz(8); if (MODE === 'multi') $('msg').textContent = '새 친구가 들어왔어요'; }
     if (MODE === 'multi'){
       updateUI(); mpEndUpdate(); mpTryNext();
-      if (ch.left.some(p => !p.isMe)) $('msg').textContent = '상대가 방을 나갔어요';
+      if (ch.left.some(p => !p.isMe)){ $('msg').textContent = '상대가 방을 나갔어요'; Sfx.cut(); }
     }
   }
   function mpWon(){
@@ -685,7 +690,7 @@ if (typeof document !== 'undefined') (function(){
     if (r.err){ mpInfo(r.err, true); return; }
     mpNew();
     closeModal($('mp')); mpInfo('');
-    const note = '방 코드 ' + code + ' · 친구에게 알려 주세요';
+    const note = '방 코드 ' + code + ' · 위 칩을 누르면 복사돼요';
     $('msg').textContent = note;
     setTimeout(() => { if (MODE === 'multi' && !solved) $('msg').textContent = note; }, 60);
   }
