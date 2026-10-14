@@ -754,7 +754,7 @@ const Bg = (() => {
     clouds = [];
     const tint = season === 'spring' ? '255,225,235' : season === 'autumn' ? '255,215,170' : season === 'winter' ? '238,244,255' : '255,255,255';
     for (let i = 0; i < 5; i++){ const s = Math.round(rnd(46, 100)); clouds.push({ x: rnd(0, W), y: rnd(H * 0.05, H * 0.36), s, v: rnd(3, 9), spr: cloudSprite(s, season === 'summer' ? 0.92 : season === 'spring' ? 0.75 : season === 'winter' ? 0.55 : 0.62, tint) }); }
-    mist = season === 'summer' ? null : { spr: mistSprite(season === 'spring' ? '255,236,242' : season === 'autumn' ? '255,208,165' : '214,230,250', season === 'winter' ? 0.34 : 0.3), y: H * (season === 'spring' ? 0.7 : season === 'autumn' ? 0.74 : 0.79), v: season === 'winter' ? 5 : 8 };
+    mist = null;
     flies = [];
     for (let i = 0; i < 14; i++) flies.push({ x: rnd(0, W), y: rnd(H * 0.55, H * 0.97), ph: rnd(0, 6.28), sp: rnd(0.6, 1.4) });
     gulls = [];
@@ -791,21 +791,17 @@ const Bg = (() => {
     if (season === 'summer'){
       const sx = W * 0.8, sy = H * 0.18;
       sun(sx, sy, 24, '255,244,190', '255,238,170');
-      rays(sx, sy, 1.9, 2.9, 7, '255,240,190', 0.1);
     } else if (season === 'spring'){
       const sx = W * 0.2, sy = H * 0.17;
       sun(sx, sy, 22, '255,238,200', '255,226,200');
-      rays(sx, sy, 0.2, 1.3, 6, '255,236,210', 0.09);
     } else if (season === 'autumn'){
       const sx = W * 0.68, sy = H * 0.66;
       const gl = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(260, W * 0.5)); gl.addColorStop(0, 'rgba(255,170,70,0.7)'); gl.addColorStop(1, 'rgba(255,170,70,0)');
       c.fillStyle = gl; c.fillRect(0, 0, W, H);
       c.fillStyle = 'rgba(255,214,140,0.9)'; c.beginPath(); c.arc(sx, sy, 40, 0, 6.283); c.fill();
-      rays(sx, sy, -2.3, -0.8, 8, '255,200,130', 0.12);
     } else {
       const sx = W * 0.78, sy = H * 0.15;
       sun(sx, sy, 20, '255,250,238', '235,245,255');
-      rays(sx, sy, 1.8, 2.8, 5, '235,245,255', 0.07);
     }
   }
   // ----- 밤: 별, 달, 은하수, 별똥별(겨울에는 오로라도) -----
@@ -876,7 +872,6 @@ const Bg = (() => {
   // 떨어지는 것은 한 번 그린 그림(스프라이트)을 위치만 바꿔 찍는다
   function drawParts(t){
     g.clearRect(0, 0, W, H);
-    if (mist){ const mw = mist.spr.width, off = ((t / 1000) * mist.v) % mw; g.drawImage(mist.spr, -off, mist.y - 60); g.drawImage(mist.spr, mw - off, mist.y - 60); }
     for (const p of parts){
       const x = p.x + Math.sin(t / 1300 + p.ph) * 20, flip = Math.cos(p.tum + t / 1000 * p.tv), fb = Math.min(3, Math.floor(Math.abs(flip) * 4));
       let spr, rot = p.rot;
