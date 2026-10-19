@@ -1361,7 +1361,7 @@ if (typeof document !== 'undefined') (function(){
     if (o && o[0] !== c){ paths[o[0]] = paths[o[0]].slice(0, o[1]); fxBurst(cell, COLORS[o[0] % COLORS.length], 6); Sfx.cut(); }   // 다른 선 자르기
     p.push(cell);
     fxRing(cell, COLORS[c % COLORS.length]);
-    if (endOf[cell] === c && p.length > 1){ pairs[c].forEach(i => fxBurst(i, COLORS[c % COLORS.length], 14)); fxSweep(p, COLORS[c % COLORS.length]); Sfx.connect(); buzz(18); }
+    if (endOf[cell] === c && p.length > 1){ pairs[c].forEach(i => fxBurst(i, COLORS[c % COLORS.length], 14)); popBeads(c); fxSweep(p, COLORS[c % COLORS.length]); Sfx.connect(); buzz(18); }
     else { Sfx.tick(p.length); fxTrail(cell, COLORS[c % COLORS.length]); }
   }
 
@@ -1510,6 +1510,8 @@ if (typeof document !== 'undefined') (function(){
     c.fillStyle = 'rgba(255,255,255,0.7)'; c.beginPath(); c.ellipse(x - rho * 0.34, y - rho * 0.42, rho * 0.2, rho * 0.11, -0.6, 0, 6.283); c.fill();
     beadCache.set(key, sp); return sp;
   }
+  const popAt = {};   // 점이 이어졌을 때 통통 커지는 시각
+  const popBeads = c => { if (reduceFx) return; const now = performance.now(); pairs[c].forEach(i => { popAt[i] = now; }); };
   const fxs = [];   // 잠깐 보였다 사라지는 효과(물결, 불꽃, 색종이)
   const rgbOf = h => { const v = parseInt(h.slice(1), 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; };
   const shade = (h, k) => { const [r, g, b] = rgbOf(h), t = k < 0 ? 0 : 255, a = Math.abs(k); return 'rgb(' + Math.round(r + (t - r) * a) + ',' + Math.round(g + (t - g) * a) + ',' + Math.round(b + (t - b) * a) + ')'; };
@@ -1529,6 +1531,7 @@ if (typeof document !== 'undefined') (function(){
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
     const life = Math.min(900, 260 + pts.length * 45);
     fxs.push({ k: 'sweep', pts, cum, col, t0, life });
+    for (let i = 0; i < 3; i++){ const q = pts[Math.floor(Math.random() * pts.length)]; fxStar(q[0] + (Math.random() - 0.5) * 0.3, q[1] + (Math.random() - 0.5) * 0.3, '#ffffff', Math.random() * life * 0.8, 0.28); }
     const step = pts.length > 40 ? 2 : 1;
     for (let i = 0; i < pts.length; i += step) fxs.push({ k: 'cell', x: pts[i][0], y: pts[i][1], col, t0: t0 + (life * i / pts.length) * 0.85, life: 420 });
   }
@@ -1538,17 +1541,27 @@ if (typeof document !== 'undefined') (function(){
     const [x, y] = cellXY(cell), t0 = performance.now();
     for (let i = 0; i < 2; i++) fxs.push({ k: 'trail', x: x + (Math.random() - 0.5) * 0.25, y: y + (Math.random() - 0.5) * 0.25, vx: (Math.random() - 0.5) * 0.9, vy: -0.2 - Math.random() * 0.7, col, t0, life: 380 + Math.random() * 260 });
   }
+  // 반짝이는 별빛(네 갈래)
+  function fxStar(x, y, col, delay, size){
+    if (reduceFx) return;
+    fxs.push({ k: 'star', x, y, col, t0: performance.now() + (delay || 0), life: 620 + Math.random() * 240, sz: size || (0.32 + Math.random() * 0.3), rot: (Math.random() - 0.5) * 0.5 });
+  }
   // 판을 다 채웠을 때: 가운데서 퍼지는 물결, 하늘로 터지는 불꽃, 판이 살짝 부풀며 빛난다
   function fxFinale(){
     if (reduceFx) return;
     const t0 = performance.now(), cx = n / 2, cy = n / 2;
     for (let i = 0; i < 3; i++) fxs.push({ k: 'wave', x: cx, y: cy, r1: n * 0.85, col: i === 1 ? '#ffe08a' : '#ffffff', t0: t0 + i * 170, life: 900 });
+    fxs.push({ k: 'flash', x: cx, y: cy, t0, life: 520 });
     for (let i = 0; i < 6; i++){
       const cell = Math.floor(Math.random() * n * n), col = COLORS[(i * 5 + Math.floor(Math.random() * 7)) % COLORS.length], d = 160 + i * 190 + Math.random() * 120;
-      const [x, y] = cellXY(cell);
-      for (let k = 0; k < 18; k++){ const a = k / 18 * 6.283 + Math.random() * 0.2, v = 1.6 + Math.random() * 1.6; fxs.push({ k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.4, col, t0: t0 + d, life: 700 + Math.random() * 300 }); }
+      const [x, y] = cellXY(cell), rise = 460;
+      fxs.push({ k: 'rocket', x0: x + (Math.random() - 0.5) * 1.2, y0: n + 0.4, x, y, col, t0: t0 + d - rise, life: rise });
+      for (let k = 0; k < 26; k++){ const a = k / 26 * 6.283 + Math.random() * 0.2, v = 1.4 + Math.random() * 2.2; fxs.push({ k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.3, col, t0: t0 + d, life: 800 + Math.random() * 400 }); }
+      for (let k = 0; k < 6; k++){ const a = Math.random() * 6.283, v = 0.4 + Math.random() * 1.2; fxs.push({ k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, col: '#ffffff', t0: t0 + d, life: 600 + Math.random() * 300 }); }
       fxs.push({ k: 'ring', x, y, col, t0: t0 + d, life: 600, r1: 1.4 });
+      fxStar(x, y, '#ffffff', d, 0.55);
     }
+    for (let i = 0; i < 12; i++) fxStar(Math.random() * n, Math.random() * n, i % 3 === 0 ? '#ffe08a' : '#ffffff', 200 + Math.random() * 1300);
     kick(cv.parentElement, 'pop');
   }
   function fxConfetti(){
@@ -1650,7 +1663,7 @@ if (typeof document !== 'undefined') (function(){
           const u = ((t / 2400) + k * 0.13) % 1;
           c.strokeStyle = alphaOf(col, (1 - u) * 0.28); c.lineWidth = s * 0.04; c.beginPath(); c.arc(x, y, ρ * (1.05 + u * 0.55), 0, 6.283); c.stroke();
         }
-        const sp = beadSprite(col, ρ, done, s); c.drawImage(sp, x - sp.width / 2, y - sp.height / 2);
+        const sp = beadSprite(col, ρ, done, s), pu = popAt[i] ? (t - popAt[i]) / 420 : 1, kk = pu < 1 ? 1 + 0.3 * Math.sin(Math.PI * Math.pow(pu, 0.7)) : 1; c.drawImage(sp, x - sp.width * kk / 2, y - sp.height * kk / 2, sp.width * kk, sp.height * kk);
       });
     });
     // 효과
@@ -1658,6 +1671,24 @@ if (typeof document !== 'undefined') (function(){
       const f = fxs[i], age = t - f.t0, u = age / f.life;
       if (u >= 1){ fxs.splice(i, 1); continue; }
       if (age < 0) continue;
+      c.globalCompositeOperation = f.k === 'conf' ? 'source-over' : 'lighter';
+      if (f.k === 'flash'){
+        const gr = c.createRadialGradient(f.x * s, f.y * s, 0, f.x * s, f.y * s, s * n * 0.75); gr.addColorStop(0, 'rgba(255,248,225,' + (0.55 * (1 - u)) + ')'); gr.addColorStop(1, 'rgba(255,248,225,0)');
+        c.fillStyle = gr; c.fillRect(0, 0, s * n, s * n); continue;
+      }
+      if (f.k === 'rocket'){
+        const e = 1 - Math.pow(1 - u, 2), hx = (f.x0 + (f.x - f.x0) * e) * s, hy = (f.y0 + (f.y - f.y0) * e) * s;
+        for (let q = 0; q < 8; q++){ const e2 = Math.max(0, 1 - Math.pow(1 - Math.max(0, u - q * 0.03), 2)), px = (f.x0 + (f.x - f.x0) * e2) * s, py = (f.y0 + (f.y - f.y0) * e2) * s; c.fillStyle = alphaOf(f.col, (1 - q / 8) * 0.55); c.beginPath(); c.arc(px, py, s * 0.05 * (1 - q / 10), 0, 6.283); c.fill(); }
+        c.fillStyle = 'rgba(255,255,255,0.95)'; c.beginPath(); c.arc(hx, hy, s * 0.06, 0, 6.283); c.fill(); continue;
+      }
+      if (f.k === 'star'){
+        const a = Math.sin(Math.PI * u), r = s * f.sz * (0.35 + 0.65 * a), x = f.x * s, y = f.y * s;
+        c.save(); c.translate(x, y); c.rotate(f.rot + u * 0.6);
+        const gr = c.createRadialGradient(0, 0, 0, 0, 0, r * 0.9); gr.addColorStop(0, 'rgba(255,255,255,' + (0.9 * a) + ')'); gr.addColorStop(1, alphaOf(f.col, 0));
+        c.fillStyle = gr; c.beginPath(); c.arc(0, 0, r * 0.9, 0, 6.283); c.fill();
+        c.fillStyle = 'rgba(255,255,255,' + (0.95 * a) + ')'; c.beginPath(); c.moveTo(0, -r); c.lineTo(r * 0.11, -r * 0.11); c.lineTo(r, 0); c.lineTo(r * 0.11, r * 0.11); c.lineTo(0, r); c.lineTo(-r * 0.11, r * 0.11); c.lineTo(-r, 0); c.lineTo(-r * 0.11, -r * 0.11); c.closePath(); c.fill();
+        c.restore(); continue;
+      }
       if (f.k === 'sweep'){
         const L = f.cum[f.cum.length - 1], d = L * (1 - Math.pow(1 - u, 2));
         for (let q = 0; q < 7; q++){
@@ -1689,14 +1720,20 @@ if (typeof document !== 'undefined') (function(){
         c.strokeStyle = alphaOf(f.col, (1 - u) * 0.9); c.lineWidth = s * 0.07 * (1 - u) + 1;
         c.beginPath(); c.arc(f.x * s, f.y * s, s * (0.25 + f.r1 * u), 0, 6.283); c.stroke();
       } else if (f.k === 'spark'){
-        f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 4 * dt;
-        c.fillStyle = alphaOf(f.col, 1 - u); c.beginPath(); c.arc(f.x * s, f.y * s, s * 0.055 * (1 - u * 0.6), 0, 6.283); c.fill();
+        const px = f.x, py = f.y, drag = Math.max(0, 1 - 1.4 * dt);
+        f.vx *= drag; f.vy = f.vy * drag + 3.2 * dt; f.x += f.vx * dt; f.y += f.vy * dt;
+        const a = Math.pow(1 - u, 1.3);
+        c.strokeStyle = alphaOf(f.col, a * 0.8); c.lineWidth = Math.max(1, s * 0.05 * (1 - u * 0.6)); c.lineCap = 'round';
+        c.beginPath(); c.moveTo(px * s - f.vx * s * 0.03, py * s - f.vy * s * 0.03); c.lineTo(f.x * s, f.y * s); c.stroke();
+        c.fillStyle = 'rgba(255,255,255,' + (a * 0.9) + ')'; c.beginPath(); c.arc(f.x * s, f.y * s, Math.max(0.8, s * 0.018), 0, 6.283); c.fill();
       } else {
         f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vr * dt;
-        c.save(); c.translate(f.x * s, f.y * s); c.rotate(f.rot); c.fillStyle = alphaOf(f.col, 1 - Math.max(0, u - 0.7) / 0.3);
+        c.save(); c.translate(f.x * s, f.y * s); c.rotate(f.rot); c.scale(1, Math.cos(f.rot * 2.3 + f.x));
+        c.fillStyle = alphaOf(f.col, 1 - Math.max(0, u - 0.7) / 0.3);
         c.fillRect(-s * 0.06, -s * 0.03, s * 0.12, s * 0.06); c.restore();
       }
     }
+    c.globalCompositeOperation = 'source-over';
   }
   requestAnimationFrame(loop);
 
@@ -1807,7 +1844,7 @@ if (typeof document !== 'undefined') (function(){
     if (p.length){
       const col = COLORS[c % COLORS.length], head = p[p.length - 1];
       fxRing(head, col);
-      if (p.length > 1 && endOf[head] === c){ pairs[c].forEach(i => fxBurst(i, col, 12)); fxSweep(p, col); Sfx.connect(); }
+      if (p.length > 1 && endOf[head] === c){ pairs[c].forEach(i => fxBurst(i, col, 12)); popBeads(c); fxSweep(p, col); Sfx.connect(); }
     }
     draw(); updateUI(); if (active === -1) checkWin();
   }
