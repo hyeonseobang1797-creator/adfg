@@ -401,14 +401,16 @@ const Bg = (() => {
     c.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:-1;pointer-events:none;background:none;border-radius:0;aspect-ratio:auto;max-width:none';
     return c;
   };
-  const cvSky = mk('bgSky'), cvNight = mk('bgNight'), scene = mk('bgScene'), dusk = mk('bgDusk'), cv = mk('bgFront');
-  [cvNight, dusk].forEach(l => { l.style.opacity = '0'; l.style.transition = 'opacity 4s ease-in-out'; });
+  const cvSky = mk('bgSky'), cvSunset = mk('bgSunset'), cvNight = mk('bgNight'), scene = mk('bgScene'), glow = mk('bgGlow'), dusk = mk('bgDusk'), cv = mk('bgFront');
+  [cvSunset, cvNight, glow, dusk].forEach(l => { l.style.opacity = '0'; });
   document.body.insertBefore(cv, document.body.firstChild);
   document.body.insertBefore(dusk, cv);
-  document.body.insertBefore(scene, dusk);
+  document.body.insertBefore(glow, dusk);
+  document.body.insertBefore(scene, glow);
   document.body.insertBefore(cvNight, scene);
-  document.body.insertBefore(cvSky, cvNight);
-  const g = cv.getContext('2d'), gs = cvSky.getContext('2d'), sg = scene.getContext('2d'), gn = cvNight.getContext('2d'), gd = dusk.getContext('2d');
+  document.body.insertBefore(cvSunset, cvNight);
+  document.body.insertBefore(cvSky, cvSunset);
+  const g = cv.getContext('2d'), gs = cvSky.getContext('2d'), sg = scene.getContext('2d'), gn = cvNight.getContext('2d'), gd = dusk.getContext('2d'), gsun = cvSunset.getContext('2d'), ggl = glow.getContext('2d');
   const nightBase = document.createElement('canvas'), nb = nightBase.getContext('2d');
   const skyBase = document.createElement('canvas'), sb = skyBase.getContext('2d');
   const aurora = document.createElement('canvas'), au = aurora.getContext('2d');
@@ -806,8 +808,16 @@ const Bg = (() => {
   }
   // ----- 밤: 별, 달, 은하수, 별똥별(겨울에는 오로라도) -----
   let stars = [], shoot = null, nightOn = false, tNight = -99999;
-  const ease = u => u * u * (3 - 2 * u);
-  const nightF = t => { const u = Math.min(1, Math.max(0, (t - tNight) / 4000)); return nightOn ? ease(u) : 1 - ease(u); };
+  // 낮과 밤 사이를 10초에 걸쳐 건넌다: 낮 → 노을(주황·분홍·보라) → 밤, 밤 → 새벽놀 → 낮
+  const PH = 10000;
+  const sm = (a, b2, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b2 - a))); return u * u * (3 - 2 * u); };
+  const progress = t => { const e = sm(0, 1, (t - tNight) / PH); return nightOn ? e : 1 - e; };
+  const nightF = t => sm(0.4, 1, progress(t));
+  const setOp = (el, v) => { v = Math.round(v * 200) / 200; if (el._o !== v){ el._o = v; el.style.opacity = v; } };
+  function applyPhase(t){
+    const p = progress(t), sa = Math.pow(Math.max(0, Math.sin(Math.PI * p)), 0.8);
+    setOp(cvNight, sm(0.4, 1, p)); setOp(dusk, sm(0.3, 1, p)); setOp(cvSunset, sa); setOp(glow, sa * 0.9);
+  }
   const HORIZON = { summer: '#2b5a8c', spring: '#5a4a86', autumn: '#6e4466', winter: '#34609a' };
   function buildNight(){
     nightBase.width = W; nightBase.height = H;
@@ -859,10 +869,30 @@ const Bg = (() => {
     }
   }
   function setNight(v, instant){
-    nightOn = !!v; tNight = performance.now() - (instant ? 5000 : 0);
-    const d = (reduce || instant) ? '0s' : '4s';
-    [cvNight, dusk].forEach(l => { l.style.transition = 'opacity ' + d + ' ease-in-out'; l.style.opacity = nightOn ? '1' : '0'; });
+    nightOn = !!v; tNight = performance.now() - ((instant || reduce) ? PH + 1 : 0);
+    const fl = nightOn ? 'none' : 'scaleX(-1)';   // 새벽에는 해가 반대쪽에서 떠오른다
+    cvSunset.style.transform = fl; glow.style.transform = fl;
+    applyPhase(performance.now());
     if (reduce) frame(0);
+  }
+  // 노을 하늘: 위는 보랏빛, 가운데는 분홍, 지평선은 주황. 낮의 해는 이 위에 덮이고, 낮은 해가 언덕 뒤로 걸린다
+  function buildSunset(){
+    cvSunset.width = W; cvSunset.height = H; glow.width = W; glow.height = H;
+    const c = gsun, hz = H * 0.72, gr = c.createLinearGradient(0, 0, 0, hz);
+    gr.addColorStop(0, 'rgba(46,34,98,0.96)'); gr.addColorStop(0.35, 'rgba(112,62,128,0.92)'); gr.addColorStop(0.68, 'rgba(238,112,84,0.88)'); gr.addColorStop(1, 'rgba(255,184,96,0.86)');
+    c.fillStyle = gr; c.fillRect(0, 0, W, hz + 4); c.fillStyle = 'rgba(255,184,96,0.86)'; c.fillRect(0, hz, W, H - hz);
+    const sx = W * 0.7, sy = H * 0.64;
+    let g2 = c.createRadialGradient(sx, sy, 0, sx, sy, Math.max(W, H) * 0.55); g2.addColorStop(0, 'rgba(255,214,140,0.85)'); g2.addColorStop(0.25, 'rgba(255,150,80,0.35)'); g2.addColorStop(1, 'rgba(255,120,70,0)');
+    c.fillStyle = g2; c.fillRect(0, 0, W, H);
+    g2 = c.createRadialGradient(sx, sy, 0, sx, sy, 70); g2.addColorStop(0, 'rgba(255,255,236,1)'); g2.addColorStop(0.4, 'rgba(255,226,160,0.95)'); g2.addColorStop(1, 'rgba(255,190,110,0)');
+    c.fillStyle = g2; c.beginPath(); c.arc(sx, sy, 70, 0, 6.283); c.fill();
+    // 노을에 물든 가는 구름 띠
+    for (let k = 0; k < 4; k++){ const cy = H * (0.3 + k * 0.08), cx = W * (0.3 + 0.18 * k), cg = c.createRadialGradient(cx, cy, 0, cx, cy, W * 0.4); cg.addColorStop(0, 'rgba(255,170,120,0.3)'); cg.addColorStop(1, 'rgba(255,170,120,0)'); c.save(); c.translate(cx, cy); c.rotate(-0.08); c.scale(1, 0.09); c.translate(-cx, -cy); c.fillStyle = cg; c.fillRect(cx - W * 0.4, cy - W * 0.4, W * 0.8, W * 0.8); c.restore(); }
+    // 풍경 위에 얹는 따뜻한 빛: 지평선 가까이가 주황으로 물들고 해 쪽 나무가 환하게 빛난다
+    const wg = ggl.createLinearGradient(0, H * 0.3, 0, H); wg.addColorStop(0, 'rgba(255,150,80,0)'); wg.addColorStop(0.45, 'rgba(255,140,70,0.34)'); wg.addColorStop(0.75, 'rgba(255,110,60,0.2)'); wg.addColorStop(1, 'rgba(110,50,60,0.2)');
+    ggl.fillStyle = wg; ggl.fillRect(0, 0, W, H);
+    const rg = ggl.createRadialGradient(sx, sy + H * 0.04, 0, sx, sy + H * 0.04, W * 0.7); rg.addColorStop(0, 'rgba(255,190,100,0.42)'); rg.addColorStop(1, 'rgba(255,190,100,0)');
+    ggl.fillStyle = rg; ggl.fillRect(0, 0, W, H);
   }
   function sky(t){
     gs.clearRect(0, 0, W, H);
@@ -906,6 +936,7 @@ const Bg = (() => {
   function step(t){
     raf = requestAnimationFrame(step);
     if (document.hidden) return;
+    if (performance.now() - tNight <= PH + 300) applyPhase(t);
     if (t - lastP >= 45){   // 약 22프레임
       const dt = Math.min(0.1, (t - lastP) / 1000); lastP = t;
       for (const p of parts){
@@ -926,7 +957,7 @@ const Bg = (() => {
   function resize(){
     W = window.innerWidth; H = window.innerHeight;
     cv.width = cvSky.width = cvNight.width = W; cv.height = cvSky.height = cvNight.height = H;
-    buildScene(); buildNight(); buildDusk();
+    buildScene(); buildNight(); buildDusk(); buildSunset();
   }
   let firstSet = true, swapTimer = 0;
   function apply(s){
