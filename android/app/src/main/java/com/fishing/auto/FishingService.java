@@ -12,6 +12,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.hardware.HardwareBuffer;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -44,7 +45,8 @@ public class FishingService extends AccessibilityService {
     static final long CAST_HOLD = 1150;     // 던질 때 꾹 누르는 시간(ms)
     static final long RECAST_DELAY = 3500;  // 성공 후 쉬는 시간(ms)
     static final long BITE_TIMEOUT = 15000; // 이 시간 안에 안 뜨면 다시 던짐(ms)
-    static final long SHOT_GAP = 350;       // 화면 보기 최소 간격(안드로이드 제한 0.33초)
+    // 화면 보기 최소 간격: 안드로이드 11 이상은 0.33초 제한이 있음
+    static final long SHOT_GAP = Build.VERSION.SDK_INT >= 30 ? 350 : 120;
     static final int REGION_DP = 14;        // 색 찾을 범위(동그라미 가운데에서 위아래좌우)
 
     static final String TUTORIAL =
@@ -159,7 +161,11 @@ public class FishingService extends AccessibilityService {
         p.gravity = Gravity.TOP | Gravity.LEFT;
         p.x = x;
         p.y = y;
-        p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+        if (Build.VERSION.SDK_INT >= 30) {
+            p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+        } else if (Build.VERSION.SDK_INT >= 28) {
+            p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
         return p;
     }
 
@@ -288,11 +294,18 @@ public class FishingService extends AccessibilityService {
     }
 
     // ================= 시작 / 정지 =================
+    private boolean needCapture() {
+        if (Build.VERSION.SDK_INT >= 30 || CaptureService.instance != null) return false;
+        status("화면 권한 필요: 자동 낚시 앱 → ② 버튼");
+        return true;
+    }
+
     private void toggle() {
         if (running) {
             stopFishing();
             return;
         }
+        if (needCapture()) return;
         int[] c = centerOf(markCheck), t = centerOf(markTap);
         checkX = c[0]; checkY = c[1]; tapX = t[0]; tapY = t[1];
         // 동그라미가 화면에 찍히거나 터치를 막지 않게 잠깐 숨김
@@ -319,7 +332,7 @@ public class FishingService extends AccessibilityService {
 
     /** 🎨 노란 동그라미 가운데의 색을 '찾을 색'으로 저장 */
     private void pickColor() {
-        if (running) return;
+        if (running || needCapture()) return;
         int[] c = centerOf(markCheck);
         status("색 찍는 중...");
         new Thread(() -> {
@@ -414,6 +427,16 @@ public class FishingService extends AccessibilityService {
 
     /** 화면 사진 (실패하면 null) */
     private Bitmap shot() {
+        lastShot = SystemClock.uptimeMillis();
+        if (Build.VERSION.SDK_INT < 30) {
+            CaptureService cs = CaptureService.instance;
+            return cs == null ? null : cs.grab();
+        }
+        return shot30();
+    }
+
+    /** 안드로이드 11 이상: 접근성 스크린샷 */
+    private Bitmap shot30() {
         final Bitmap[] out = new Bitmap[1];
         final CountDownLatch done = new CountDownLatch(1);
         lastShot = SystemClock.uptimeMillis();

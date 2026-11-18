@@ -2,6 +2,8 @@ package com.fishing.auto;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.media.projection.MediaProjectionManager;
+import android.os.Build;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -19,6 +21,23 @@ import android.widget.Toast;
 public class MainActivity extends Activity {
 
     private TextView state;
+    private static final int REQ_CAPTURE = 7;
+
+    @Override
+    protected void onActivityResult(int req, int result, Intent data) {
+        super.onActivityResult(req, result, data);
+        if (req != REQ_CAPTURE) return;
+        if (result != RESULT_OK || data == null) {
+            Toast.makeText(this, "화면 권한이 있어야 빨간색을 찾을 수 있어요", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Intent svc = new Intent(this, CaptureService.class)
+                .putExtra(CaptureService.EXTRA_CODE, result)
+                .putExtra(CaptureService.EXTRA_DATA, data);
+        if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc); else startService(svc);
+        Toast.makeText(this, "로블록스로 가세요!", Toast.LENGTH_SHORT).show();
+        moveTaskToBack(true);
+    }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -53,6 +72,11 @@ public class MainActivity extends Activity {
         root.addView(button("② 낚시 창 띄우기", "#3AA060", v -> {
             if (FishingService.instance == null) {
                 Toast.makeText(this, "먼저 ① 접근성을 켜 주세요", Toast.LENGTH_LONG).show();
+            } else if (Build.VERSION.SDK_INT < 30 && CaptureService.instance == null) {
+                // 안드로이드 10 이하: 화면 녹화 권한을 받아야 빨간색을 볼 수 있음
+                Toast.makeText(this, "'지금 시작'을 눌러 주세요", Toast.LENGTH_LONG).show();
+                MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+                startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CAPTURE);
             } else {
                 FishingService.instance.showOverlay();
                 Toast.makeText(this, "로블록스로 가세요!", Toast.LENGTH_SHORT).show();
